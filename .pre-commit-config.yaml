@@ -17,3 +17,21 @@ repos:
     rev: v8.18.2
     hooks:
       - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint
+        entry: bash -c 'cd frontend && pnpm run lint'
+        language: system
+        types: [file]
+        files: ^frontend/src/.*\.[jt]sx?$
+        pass_filenames: false
+
+      - id: prettier
+        name: prettier
+        entry: bash -c 'cd frontend && pnpm run format:check'
+        language: system
+        types: [file]
+        files: ^frontend/src/.*\.[jt]sx?$
+        pass_filenames: false

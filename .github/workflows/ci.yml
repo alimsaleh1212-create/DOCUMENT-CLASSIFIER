@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-lint:
+    name: Backend – Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync
+        working-directory: backend
+      - run: uv run ruff check .
+        working-directory: backend
+      - run: uv run ruff format --check .
+        working-directory: backend
+
+  backend-typecheck:
+    name: Backend – Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync
+        working-directory: backend
+      - run: uv run mypy --strict app/
+        working-directory: backend
+
+  backend-test:
+    name: Backend – Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync
+        working-directory: backend
+      - run: uv run pytest -q
+        working-directory: backend
+
+  backend-secrets-check:
+    name: Backend – No Hardcoded Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          hits=$(grep -ri 'password' backend/app/ --exclude-dir=__pycache__ || true)
+          vault_hits=$(grep -ri 'password' backend/app/infra/vault.py || true)
+          if [ -n "$hits" ] && [ "$hits" != "$vault_hits" ]; then
+            echo "::error::Hardcoded password found outside vault.py"
+            echo "$hits"
+            exit 1
+          fi
+
+  backend-layer-check:
+    name: Backend – Layer Boundary Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          echo "Checking no SQLAlchemy imports in api layer..."
+          grep -rn 'from sqlalchemy\|import sqlalchemy' backend/app/api/ && exit 1 || true
+          grep -rn 'from app.db.models\|import app.db.models' backend/app/api/ && exit 1 || true
+          echo "Checking no HTTPException imports in repositories layer..."
+          grep -rn 'from fastapi\|import fastapi' backend/app/repositories/ && exit 1 || true
+          grep -rn 'HTTPException' backend/app/repositories/ && exit 1 || true
+          echo "Checking no cache invalidation in routers..."
+          grep -rn 'FastAPICache.clear\|fastapi_cache' backend/app/api/ && exit 1 || true
+          echo "All layer boundary checks passed."
+
+  frontend-lint:
+    name: Frontend – Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - run: pnpm run lint
+        working-directory: frontend
+      - run: pnpm run format:check
+        working-directory: frontend
+
+  frontend-test:
+    name: Frontend – Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - run: pnpm run test --run
+        working-directory: frontend
+
+  gitleaks:
+    name: Gitleaks – Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
