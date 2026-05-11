@@ -1,0 +1,39 @@
+{
+  "name": "doc-classifier-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "lint": "eslint . --ext ts,tsx",
+    "format": "prettier --write src/",
+    "gen:api": "openapi-typescript-codegen --input http://localhost:8000/openapi.json --output ./src/api --client axios"
+  },
+  "dependencies": {
+    "react": "^18.3",
+    "react-dom": "^18.3",
+    "react-router-dom": "^6.23",
+    "@tanstack/react-query": "^5",
+    "axios": "^1.7"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3",
+    "@types/react-dom": "^18.3",
+    "@vitejs/plugin-react": "^4.3",
+    "autoprefixer": "^10.4",
+    "eslint": "^8",
+    "postcss": "^8.4",
+    "prettier": "^3.3",
+    "tailwindcss": "^3.4",
+    "typescript": "^5.4",
+    "vite": "^5.3",
+    "vitest": "^1.6",
+    "@testing-library/react": "^15",
+    "@testing-library/jest-dom": "^6",
+    "jsdom": "^24",
+    "openapi-typescript-codegen": "^0.27"
+  }
+}

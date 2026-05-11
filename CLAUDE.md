@@ -18,13 +18,13 @@ The codebase is **strictly layered**. Boundary violations fail the project regar
 
 | Layer | Path | What lives here | What does NOT live here |
 |---|---|---|---|
-| HTTP | `app/api/` | FastAPI routers, dependencies, request/response shaping | SQLAlchemy, external systems, cache invalidation |
-| Services | `app/services/` | Business logic, transaction boundaries, cache invalidation | HTTP types, SQL queries |
-| Repositories | `app/repositories/` | SQL via SQLAlchemy ORM | `HTTPException`, cache invalidation, business decisions |
-| Domain | `app/domain/` | Pydantic models for the domain (request/response/contracts) | ORM, persistence concerns |
-| ORM | `app/db/models.py` | SQLAlchemy ORM models | Imported by **anything except** repositories |
-| Infra adapters | `app/infra/` | Vault, MinIO, RQ, SFTP, Redis cache | Business logic, HTTP concerns |
-| Classifier | `app/classifier/` | Model loading, prediction, golden-set replay | Anything that depends on the API or DB |
+| HTTP | `backend/app/api/` | FastAPI routers, dependencies, request/response shaping | SQLAlchemy, external systems, cache invalidation |
+| Services | `backend/app/services/` | Business logic, transaction boundaries, cache invalidation | HTTP types, SQL queries |
+| Repositories | `backend/app/repositories/` | SQL via SQLAlchemy ORM | `HTTPException`, cache invalidation, business decisions |
+| Domain | `backend/app/domain/` | Pydantic models for the domain (request/response/contracts) | ORM, persistence concerns |
+| ORM | `backend/app/db/models.py` | SQLAlchemy ORM models | Imported by **anything except** repositories |
+| Infra adapters | `backend/app/infra/` | Vault, MinIO, RQ, SFTP, Redis cache | Business logic, HTTP concerns |
+| Classifier | `backend/app/classifier/` | Model loading, prediction, golden-set replay | Anything that depends on the API or DB |
 
 The brief warns: "We will check the boundary on Friday by asking you to add a new endpoint or CLI command live." Treat every PR as a chance to fail that check or pass it.
 
@@ -34,61 +34,88 @@ The brief warns: "We will check the boundary on Friday by asking you to add a ne
 
 ```
 project6/
-├── app/
-│   ├── main.py                    # FastAPI app, lifespan (Vault → Casbin → cache backend)
-│   ├── config.py                  # pydantic-settings; extra="forbid"
-│   ├── api/
-│   │   ├── deps.py                # shared Depends() (current_user, enforcer, request_id)
-│   │   └── routers/
-│   │       ├── auth.py
-│   │       ├── users.py
-│   │       ├── batches.py
-│   │       ├── predictions.py
-│   │       └── audit.py
-│   ├── services/
-│   │   ├── interfaces.py          # ABCs frozen by the team
-│   │   ├── user_service.py
-│   │   ├── batch_service.py
-│   │   ├── prediction_service.py
-│   │   └── audit_service.py
-│   ├── repositories/
-│   │   ├── interfaces.py          # ABCs frozen by the team
-│   │   ├── user_repo.py
-│   │   ├── batch_repo.py
-│   │   ├── prediction_repo.py
-│   │   └── audit_repo.py
-│   ├── domain/
-│   │   └── contracts.py           # Pydantic domain models (UserOut, BatchOut, ...)
-│   ├── db/
-│   │   ├── models.py              # SQLAlchemy ORM — repos import only
-│   │   └── session.py             # async engine + session factory
-│   ├── infra/
-│   │   ├── vault.py
-│   │   ├── blob.py                # MinIO
-│   │   ├── queue.py               # RQ
-│   │   ├── sftp.py
-│   │   ├── cache.py               # fastapi-cache2 Redis backend init
-│   │   └── casbin/policy.csv
-│   └── classifier/
-│       ├── predictor.py
-│       ├── overlay.py
-│       ├── startup_checks.py
-│       ├── models/                # classifier.pt (git LFS) + model_card.json
-│       └── eval/
-│           ├── golden.py
-│           ├── golden_images/
-│           └── golden_expected.json
-├── worker/                        # inference worker entrypoint (RQ)
-├── sftp-ingest/                   # SFTP polling worker entrypoint
-├── alembic/                       # migrations
+├── backend/
+│   ├── app/
+│   │   ├── main.py                    # FastAPI app, lifespan (Vault → Casbin → cache backend)
+│   │   ├── config.py                  # pydantic-settings; extra="forbid"
+│   │   ├── api/
+│   │   │   ├── deps.py                # shared Depends() (current_user, enforcer, request_id)
+│   │   │   └── routers/
+│   │   │       ├── auth.py
+│   │   │       ├── users.py
+│   │   │       ├── batches.py
+│   │   │       ├── predictions.py
+│   │   │       └── audit.py
+│   │   ├── services/
+│   │   │   ├── interfaces.py          # ABCs frozen by the team
+│   │   │   ├── user_service.py
+│   │   │   ├── batch_service.py
+│   │   │   ├── prediction_service.py
+│   │   │   └── audit_service.py
+│   │   ├── repositories/
+│   │   │   ├── interfaces.py          # ABCs frozen by the team
+│   │   │   ├── user_repo.py
+│   │   │   ├── batch_repo.py
+│   │   │   ├── prediction_repo.py
+│   │   │   └── audit_repo.py
+│   │   ├── domain/
+│   │   │   └── contracts.py           # Pydantic domain models (UserOut, BatchOut, ...)
+│   │   ├── db/
+│   │   │   ├── models.py              # SQLAlchemy ORM — repos import only
+│   │   │   └── session.py             # async engine + session factory
+│   │   ├── infra/
+│   │   │   ├── vault.py
+│   │   │   ├── blob.py                # MinIO
+│   │   │   ├── queue.py               # RQ
+│   │   │   ├── sftp.py
+│   │   │   ├── cache.py               # fastapi-cache2 Redis backend init
+│   │   │   └── casbin/
+│   │   │       ├── model.conf
+│   │   │       └── policy.csv
+│   │   └── classifier/
+│   │       ├── predictor.py
+│   │       ├── overlay.py
+│   │       ├── startup_checks.py
+│   │       ├── models/                # classifier.pt (git LFS) + model_card.json
+│   │       └── eval/
+│   │           ├── golden.py
+│   │           ├── golden_images/
+│   │           └── golden_expected.json
+│   ├── worker/                        # inference worker entrypoint (RQ)
+│   ├── sftp_ingest/                   # SFTP polling worker entrypoint
+│   ├── alembic/                       # migrations
+│   ├── tests/                         # mirrors app/ layout
+│   ├── scripts/
+│   ├── pyproject.toml
+│   ├── uv.lock
+│   ├── alembic.ini
+│   └── Dockerfile
 ├── frontend/                      # React + TS (Vite); standalone workspace
-├── docker/                        # Dockerfiles per service
-├── tests/                         # mirrors app/ layout
+│   ├── src/
+│   │   ├── api/                   # generated from OpenAPI
+│   │   ├── pages/
+│   │   ├── hooks/
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── __tests__/
+│   ├── public/
+│   ├── package.json
+│   ├── pnpm-lock.yaml
+│   ├── tsconfig.json
+│   ├── vite.config.ts
+│   ├── tailwind.config.js
+│   ├── Dockerfile
+│   ├── .env.example
+│   └── index.html
+├── docker/                        # Dockerfiles per service + vault-init.sh
 ├── docs/                          # project-6.pdf, guidelines, erd.md
 ├── docker-compose.yml
 ├── .env.example
-├── pyproject.toml
-├── uv.lock
+├── .gitignore
+├── .dockerignore
+├── .pre-commit-config.yaml
+├── .gitattributes
+├── alembic.ini
 ├── README.md
 ├── ARCH.md
 ├── DECISIONS.md
@@ -98,7 +125,7 @@ project6/
 └── LICENSES.md
 ```
 
-`frontend/` and `app/` are independent workspaces. They share only the OpenAPI schema (`frontend/src/api/` is generated from it).
+`frontend/` and `backend/` are independent workspaces. They share only the OpenAPI schema (`frontend/src/api/` is generated from it). All Python imports resolve from `backend/` as the project root (e.g., `from app.domain.contracts import ...`).
 
 ---
 
@@ -120,7 +147,7 @@ The brief is explicit on these — do not substitute (RQ not Celery, Casbin not 
 
 The `api` and `worker` containers MUST exit non-zero on boot if any of these are false. Implement them as explicit checks in the lifespan, not as crashes-by-accident.
 
-1. `app/classifier/models/classifier.pt` exists.
+1. `backend/app/classifier/models/classifier.pt` exists.
 2. SHA-256 of `classifier.pt` matches `model_card.json`.
 3. Model card's reported test top-1 ≥ the threshold committed in `README.md`.
 4. Vault is reachable and the JWT signing key resolves.
@@ -133,7 +160,7 @@ The Friday demo includes "kill Vault, show api refuses to restart." Build for th
 ## 6. Secrets Discipline
 
 - All secrets resolve from Vault at app startup. The only thing in `.env` is the Vault root token and the host ports.
-- `grep -ri 'password' app/` returns zero matches outside the Vault adapter. Run that grep before every push.
+- `grep -ri 'password' backend/app/` returns zero matches outside the Vault adapter. Run that grep before every push.
 - Never `os.getenv()` for secrets in feature code — go through `app.config.Settings` (loads safe values) and the Vault adapter (loads secrets).
 - `.env`, `.venv`, `node_modules`, `__pycache__`, `*.pt` (except via LFS) are in `.gitignore` from commit zero. Lockfiles (`uv.lock`, `pnpm-lock.yaml`) are NOT ignored.
 - If a secret is ever committed: rotate first, clean history second. Removing the commit is not enough.
@@ -142,11 +169,11 @@ The Friday demo includes "kill Vault, show api refuses to restart." Build for th
 
 ## 7. Caching Policy
 
-- Backend: `fastapi-cache2` with Redis backend, initialized in the app lifespan by `app/infra/cache.py`.
+- Backend: `fastapi-cache2` with Redis backend, initialized in the app lifespan by `backend/app/infra/cache.py`.
 - The cached endpoints (minimum): `GET /me`, `GET /batches`, `GET /batches/{bid}`, `GET /predictions/recent`.
 - Cache reads via `@cache(...)` decorator on the **service** method, not the router.
 - **Invalidation lives in services only.** Routers and repositories do not call `FastAPICache.clear(...)`. On any write that affects a cached read, the service explicitly invalidates the relevant namespace.
-- TTLs and namespaces documented in `app/services/<name>_service.py` module docstrings.
+- TTLs and namespaces documented in `backend/app/services/<name>_service.py` module docstrings.
 - The brief calls this out as a Friday demo point: toggling a role must invalidate `/me` for that user without forcing a logout.
 
 ---
@@ -181,7 +208,7 @@ Benchmark using `hey`/`wrk` against the local compose stack with 50 warmed-up re
 
 ## 10. Testing Standards
 
-- **Golden replay** (`app/classifier/eval/golden.py`): byte-identical predicted labels and top-1 confidence within `1e-6` versus `golden_expected.json`. A failure blocks CI.
+- **Golden replay** (`backend/app/classifier/eval/golden.py`): byte-identical predicted labels and top-1 confidence within `1e-6` versus `golden_expected.json`. A failure blocks CI.
 - **CI smoke test**: bring up the full compose stack, SCP a TIFF into SFTP, poll the API until the prediction appears, assert success within the e2e p95 budget × 2.
 - Coverage floor: 80% lines overall, 95% on services + repositories. Coverage is a sanity check, not a virtue.
 - AAA pattern (Arrange / Act / Assert), one assertion-cluster per test.
@@ -220,7 +247,7 @@ Tests live under `tests/` mirroring `app/`. Test file: `test_<module>.py`. Test 
 - **No vibe coding.** Every line must be defensible on Friday. If Claude generates code and you cannot explain what it does after reading it once, delete it and ask Claude to explain the concept first.
 - **Defend every dependency.** Adding a new library to `pyproject.toml` requires a one-paragraph rationale in the PR description.
 - **Respect the layers.** When a refactor tempts you to "just import the ORM from the service for this one query," stop. Add the method to the repository.
-- **Verify before claiming done.** Run the tests. Run the linter. Run `grep -ri 'password' app/`. Pull the OpenAPI schema and diff it against the route map in `ARCH.md`.
+- **Verify before claiming done.** Run the tests. Run the linter. Run `grep -ri 'password' backend/app/`. Pull the OpenAPI schema and diff it against the route map in `ARCH.md`.
 - **Read the PDFs.** `docs/project-6.pdf`, `docs/AIE_Bootcamp_Coding_Guidelines.pdf`, `docs/code_review_guidelines.pdf`, `docs/Engineering_Standards_Companion_Guide.pdf`. They are the rubric.
 
 ---
@@ -242,10 +269,10 @@ Tests live under `tests/` mirroring `app/`. Test file: `test_<module>.py`. Test 
 A PR is done when, and only when:
 
 - [ ] `ruff check .` and `ruff format --check .` pass.
-- [ ] `mypy --strict app/` passes.
+- [ ] `mypy --strict backend/app/` passes.
 - [ ] `pytest -q` passes.
-- [ ] `grep -ri 'password' app/` returns zero hits outside `app/infra/vault.py`.
-- [ ] Layer boundaries are respected (no SQLAlchemy in `app/api/`, no `HTTPException` in `app/repositories/`).
+- [ ] `grep -ri 'password' backend/app/` returns zero hits outside `backend/app/infra/vault.py`.
+- [ ] Layer boundaries are respected (no SQLAlchemy in `backend/app/api/`, no `HTTPException` in `backend/app/repositories/`).
 - [ ] Cached endpoints have explicit invalidation paths in services.
 - [ ] Audit log writes wrap every mutating action.
 - [ ] If endpoints changed: `ARCH.md` updated.

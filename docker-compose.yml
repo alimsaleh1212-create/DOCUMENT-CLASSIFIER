@@ -1,0 +1,164 @@
+version: "3.9"
+
+services:
+  vault:
+    image: hashicorp/vault:1.15
+    command: server -dev -dev-root-token-id="${VAULT_TOKEN:-dev-root-token}"
+    ports:
+      - "${VAULT_PORT:-8200}:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "${VAULT_TOKEN:-dev-root-token}"
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: docclass
+      POSTGRES_PASSWORD: docclass
+      POSTGRES_DB: docclass
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docclass"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  sftp:
+    image: atmoz/sftp
+    ports:
+      - "${SFTP_PORT:-2222}:22"
+    volumes:
+      - sftpdata:/home/docscanner/incoming
+    command: "docscanner:scan123:1001"
+
+  migrate:
+    build:
+      context: backend/
+      dockerfile: Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://docclass:docclass@db:5432/docclass"
+
+  api:
+    build:
+      context: backend/
+      dockerfile: Dockerfile
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "${VAULT_TOKEN:-dev-root-token}"
+      DATABASE_URL: "postgresql+asyncpg://docclass:docclass@db:5432/docclass"
+      REDIS_URL: "redis://redis:6379/0"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+
+  worker:
+    build:
+      context: backend/
+      dockerfile: Dockerfile
+    command: ["python", "-m", "worker"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "${VAULT_TOKEN:-dev-root-token}"
+      REDIS_URL: "redis://redis:6379/0"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+
+  sftp-ingest:
+    build:
+      context: backend/
+      dockerfile: Dockerfile
+    command: ["python", "-m", "sftp_ingest"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      sftp:
+        condition: service_started
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+      SFTP_HOST: "sftp"
+      SFTP_PORT: "22"
+      SFTP_USER: "docscanner"
+      SFTP_PASSWORD: "scan123"
+
+  frontend:
+    build:
+      context: frontend/
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONTEND_DEV_PORT:-5173}:8080"
+    depends_on:
+      - api
+    environment:
+      VITE_API_BASE_URL: "http://localhost:${API_PORT:-8000}"
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  sftpdata:
