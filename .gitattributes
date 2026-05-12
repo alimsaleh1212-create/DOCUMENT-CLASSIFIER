@@ -1,1 +1,2 @@
 *.pt filter=lfs diff=lfs merge=lfs -text
+backend/app/classifier/models/classifier.pt filter=lfs diff=lfs merge=lfs -text
