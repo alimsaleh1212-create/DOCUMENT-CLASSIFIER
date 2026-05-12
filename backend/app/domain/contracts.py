@@ -81,11 +81,13 @@ class DocumentOut(BaseModel):
 class PredictionOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
+    batch_id: str
     document_id: str
     label: PredictionLabel
     top1_confidence: float
     top5: list[tuple[PredictionLabel, float]]
     overlay_url: str | None = None
+    model_version: str
     created_at: datetime
 
 
