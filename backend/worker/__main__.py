@@ -23,7 +23,7 @@ if str(_REPO_ROOT) not in sys.path:
 # ---------------------------------------------------------------------------
 import redis  # noqa: E402
 import structlog  # noqa: E402
-from rq import Connection, Worker  # noqa: E402
+from rq import Worker  # noqa: E402
 
 from app.classifier.predictor import get_predictor  # noqa: E402
 from app.classifier.startup_checks import run_all_startup_checks  # noqa: E402
@@ -93,19 +93,23 @@ if use_fakes:
     blob = FakeBlob()
     log.info("blob.using_fake")
 else:
-    # Will be replaced by real MinIO adapter (M3)
-    raise NotImplementedError(
-        "Real blob adapter not available yet. Set WORKER_USE_FAKES=1 to test."
-    )
+    from app.config import Settings as _Settings  # noqa: PLC0415
+    from app.infra.blob import MinioBlob  # noqa: PLC0415
+    from app.infra.vault import VaultClient  # noqa: PLC0415
+    _s = _Settings()
+    _vault = VaultClient(_s.vault_addr, _s.vault_token)
+    _ak, _sk = _vault.get_minio_credentials()
+    blob = MinioBlob(endpoint=_s.minio_endpoint, access_key=_ak, secret_key=_sk)
+    log.info("blob.using_real_minio")
 
 if use_fakes:
     from tests.fakes.prediction_service import FakePredictionService
     prediction_service = FakePredictionService()
     log.info("prediction_service.using_fake")
 else:
-    raise NotImplementedError(
-        "Real prediction service not available yet. Set WORKER_USE_FAKES=1 to test."
-    )
+    from app.infra.worker_prediction_service import WorkerPredictionService  # noqa: PLC0415
+    prediction_service = WorkerPredictionService(postgres_dsn=_vault.get_postgres_dsn())
+    log.info("prediction_service.using_real")
 
 # ---------------------------------------------------------------------------
 # Inject dependencies
@@ -120,12 +124,10 @@ except Exception as e:
 # ---------------------------------------------------------------------------
 # Start the RQ worker
 # ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
-    redis_conn = redis.from_url(REDIS_URL)
-    QUEUE_NAME = "classify"
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+redis_conn = redis.from_url(REDIS_URL)
+QUEUE_NAME = "classify"
 
-    with Connection(redis_conn):
-        worker = Worker([QUEUE_NAME])
-        log.info("worker.starting", queue=QUEUE_NAME, fakes=use_fakes)
-        worker.work()
+worker = Worker([QUEUE_NAME], connection=redis_conn)
+log.info("worker.starting", queue=QUEUE_NAME, fakes=use_fakes)
+worker.work()
