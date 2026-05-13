@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.app.classifier.predictor import PredictionOut, Predictor, get_predictor
+from app.classifier.predictor import PredictionOut, Predictor, get_predictor
 
 # Tiny fixture – lives in backend/tests/fixtures/sample.tif
 SAMPLE_TIFF = Path(__file__).resolve().parent.parent / "fixtures" / "sample.tif"

@@ -16,13 +16,13 @@ from tenacity import (
     wait_exponential,
 )
 
-from backend.app.classifier.overlay import render_overlay
+from app.classifier.overlay import render_overlay
 
 # Predictor and overlay (your modules)
-from backend.app.classifier.predictor import Predictor
+from app.classifier.predictor import Predictor
 
 # Official contracts (from M2)
-from backend.app.domain.contracts import (
+from app.domain.contracts import (
     ClassifyJob,
     PredictionLabel,
     PredictionOut,
