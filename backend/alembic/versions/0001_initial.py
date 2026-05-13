@@ -174,6 +174,28 @@ def upgrade() -> None:
     op.create_index("ix_predictions_batch_id", "predictions", ["batch_id"])
     op.create_index("ix_predictions_created_at", "predictions", ["created_at"])
 
+    # Seed Casbin RBAC policies (mirrors backend/app/infra/casbin/policy.csv)
+    op.bulk_insert(
+        sa.table(
+            "casbin_rule",
+            sa.column("ptype", sa.String),
+            sa.column("v0", sa.String),
+            sa.column("v1", sa.String),
+            sa.column("v2", sa.String),
+        ),
+        [
+            {"ptype": "p", "v0": "admin",    "v1": "invite_user",        "v2": "allow"},
+            {"ptype": "p", "v0": "admin",    "v1": "toggle_role",        "v2": "allow"},
+            {"ptype": "p", "v0": "admin",    "v1": "read_audit",         "v2": "allow"},
+            {"ptype": "p", "v0": "admin",    "v1": "read_batch",         "v2": "allow"},
+            {"ptype": "p", "v0": "admin",    "v1": "relabel_prediction", "v2": "allow"},
+            {"ptype": "p", "v0": "reviewer", "v1": "read_batch",         "v2": "allow"},
+            {"ptype": "p", "v0": "reviewer", "v1": "relabel_prediction", "v2": "allow"},
+            {"ptype": "p", "v0": "auditor",  "v1": "read_batch",         "v2": "allow"},
+            {"ptype": "p", "v0": "auditor",  "v1": "read_audit",         "v2": "allow"},
+        ],
+    )
+
 
 def downgrade() -> None:
     op.drop_index("ix_predictions_created_at", table_name="predictions")

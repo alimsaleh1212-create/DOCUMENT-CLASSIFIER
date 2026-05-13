@@ -9,7 +9,7 @@ services:
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: "${VAULT_TOKEN:-dev-root-token}"
     healthcheck:
-      test: ["CMD", "vault", "status"]
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8200/v1/sys/health || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -22,6 +22,14 @@ services:
     environment:
       VAULT_ADDR: "http://vault:8200"
       VAULT_TOKEN: "${VAULT_TOKEN:-dev-root-token}"
+      POSTGRES_USER: "${POSTGRES_USER:-docclass}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-docclass}"
+      POSTGRES_DB: "${POSTGRES_DB:-docclass}"
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-minioadmin}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+      SFTP_USER: "${SFTP_USER:-docscanner}"
+      SFTP_PASSWORD: "${SFTP_PASSWORD:-scan123}"
+      JWT_SIGNING_KEY: "${JWT_SIGNING_KEY:-dev-jwt-signing-key}"
     volumes:
       - ./docker/vault-init.sh:/vault-init.sh:ro
     entrypoint: ["/bin/sh", "/vault-init.sh"]

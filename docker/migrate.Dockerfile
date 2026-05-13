@@ -8,8 +8,10 @@ RUN uv sync --project backend --frozen --no-dev
 
 FROM python:3.11-slim AS runtime
 
+# site-packages must come BEFORE /workspace/backend so that `import alembic`
+# resolves to the installed package, not the local backend/alembic/ migrations dir.
 ENV PATH="/workspace/backend/.venv/bin:${PATH}" \
-    PYTHONPATH="/workspace/backend" \
+    PYTHONPATH="/workspace/backend/.venv/lib/python3.11/site-packages:/workspace/backend" \
     PYTHONUNBUFFERED=1
 
 WORKDIR /workspace
