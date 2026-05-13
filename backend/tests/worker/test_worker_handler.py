@@ -1,0 +1,59 @@
+""" tests/worker/test_worker_handler.py """
+
+import pytest
+from pathlib import Path
+
+# Ensure repo root is in sys.path (pytest usually adds it)
+from backend.worker.handler import classify_job, inject_dependencies
+from backend.tests.fakes.blob import FakeBlob
+from backend.tests.fakes.prediction_service import FakePredictionService
+from backend.app.classifier.predictor import get_predictor
+
+SAMPLE_TIFF = Path(__file__).resolve().parent.parent / "fixtures" / "sample.tif"
+
+@pytest.fixture
+def fakes():
+    blob = FakeBlob()
+    service = FakePredictionService()
+    predictor = get_predictor()
+    inject_dependencies(predictor, blob, service, "test_model_version")
+    # Put sample TIFF into blob
+    blob.put("documents/batch1/doc1.tif", SAMPLE_TIFF.read_bytes())
+    return blob, service
+
+def test_classify_job_success(fakes):
+    blob, service = fakes
+    classify_job({
+        "batch_id": "batch1",
+        "document_id": "doc1",
+        "blob_key": "documents/batch1/doc1.tif",
+        "request_id": "req-123"
+    })
+    assert len(service.records) == 1
+    record = service.records[0]
+    assert record.label is not None
+    assert record.model_version == "test_model_version"
+    assert record.batch_id == "batch1"
+    assert record.document_id == "doc1"
+
+def test_classify_job_retries_on_blob_error(fakes, monkeypatch):
+    """Simulate blob failure -> retry, then success."""
+    blob, service = fakes
+    # Replace blob.get to fail once then succeed
+    original_get = blob.get
+    call_count = 0
+    def failing_get(key):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise ConnectionError("simulated")
+        return original_get(key)
+    monkeypatch.setattr(blob, "get", failing_get)
+
+    classify_job({
+        "batch_id": "batch1",
+        "document_id": "doc1",
+        "blob_key": "documents/batch1/doc1.tif",
+        "request_id": "req-123"
+    })
+    assert len(service.records) == 1   # eventually recorded
