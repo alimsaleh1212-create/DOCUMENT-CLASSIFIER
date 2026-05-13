@@ -1,0 +1,37 @@
+{
+  "sha256": "ac177997723cd4016c35d9880a5a43ce5e785032c264e7a598c816c15741bc4d",
+  "backbone": "convnext_tiny",
+  "weights_enum": "IMAGENET1K_V1",
+  "freeze_policy": "full_fine_tune",
+  "test_top1": 80.2,
+  "test_top5": 96.4,
+  "golden_top1": null,
+  "golden_top5": null,
+  "per_class_accuracy": {
+    "letter": 79.88826815642459,
+    "form": 65.36312849162012,
+    "email": 94.21052631578948,
+    "handwritten": 90.80459770114942,
+    "advertisement": 84.7457627118644,
+    "scientific report": 56.49717514124294,
+    "scientific publication": 78.53403141361257,
+    "specification": 86.3905325443787,
+    "file folder": 93.80952380952381,
+    "news article": 81.98757763975155,
+    "budget": 64.48087431693989,
+    "invoice": 82.95454545454545,
+    "presentation": 72.8643216080402,
+    "questionnaire": 75.87939698492463,
+    "resume": 81.9047619047619,
+    "memo": 89.38053097345133
+  },
+  "worst_class": "scientific report",
+  "env": {
+    "python": "3.12.13",
+    "torch": "2.10.0+cu128",
+    "torchvision": "0.25.0+cu128",
+    "cuda": "Tesla T4"
+  },
+  "trained_at": "2026-05-12T09:45:34Z",
+  "seed": 42
+}

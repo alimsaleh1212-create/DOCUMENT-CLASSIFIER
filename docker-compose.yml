@@ -14,6 +14,19 @@ services:
       timeout: 3s
       retries: 5
 
+  vault-init:
+    image: hashicorp/vault:1.15
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "${VAULT_TOKEN:-dev-root-token}"
+    volumes:
+      - ./docker/vault-init.sh:/vault-init.sh:ro
+    entrypoint: ["/bin/sh", "/vault-init.sh"]
+    restart: "no"
+
   db:
     image: postgres:16
     environment:
@@ -70,9 +83,8 @@ services:
 
   migrate:
     build:
-      context: backend/
-      dockerfile: Dockerfile
-    command: ["alembic", "upgrade", "head"]
+      context: .
+      dockerfile: docker/migrate.Dockerfile
     depends_on:
       db:
         condition: service_healthy
@@ -81,9 +93,8 @@ services:
 
   api:
     build:
-      context: backend/
-      dockerfile: Dockerfile
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+      context: .
+      dockerfile: docker/api.Dockerfile
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
@@ -93,8 +104,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-      vault:
-        condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
     environment:
       VAULT_ADDR: "http://vault:8200"
       VAULT_TOKEN: "${VAULT_TOKEN:-dev-root-token}"
@@ -106,16 +117,15 @@ services:
 
   worker:
     build:
-      context: backend/
-      dockerfile: Dockerfile
-    command: ["python", "-m", "worker"]
+      context: .
+      dockerfile: docker/worker.Dockerfile
     depends_on:
       redis:
         condition: service_healthy
       minio:
         condition: service_healthy
-      vault:
-        condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
     environment:
       VAULT_ADDR: "http://vault:8200"
       VAULT_TOKEN: "${VAULT_TOKEN:-dev-root-token}"
@@ -126,17 +136,22 @@ services:
 
   sftp-ingest:
     build:
-      context: backend/
-      dockerfile: Dockerfile
-    command: ["python", "-m", "sftp_ingest"]
+      context: .
+      dockerfile: docker/sftp_ingest.Dockerfile
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       minio:
         condition: service_healthy
       sftp:
         condition: service_started
+      vault-init:
+        condition: service_completed_successfully
     environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "${VAULT_TOKEN:-dev-root-token}"
       REDIS_URL: "redis://redis:6379/0"
       MINIO_ENDPOINT: "minio:9000"
       MINIO_ACCESS_KEY: "${MINIO_ROOT_USER:-minioadmin}"
@@ -145,6 +160,11 @@ services:
       SFTP_PORT: "22"
       SFTP_USER: "${SFTP_USER:-docscanner}"
       SFTP_PASSWORD: "${SFTP_PASSWORD}"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/sftp-ingest.heartbeat"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
 
   frontend:
     build:

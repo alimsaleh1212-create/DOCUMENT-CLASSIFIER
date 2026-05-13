@@ -1,0 +1,252 @@
+[
+  {
+    "filename": "resume_00098.tif",
+    "expected_label": "news article",
+    "top1_confidence": 0.8884168863
+  },
+  {
+    "filename": "budget_00192.tif",
+    "expected_label": "file folder",
+    "top1_confidence": 0.9507195354
+  },
+  {
+    "filename": "file folder_00236.tif",
+    "expected_label": "file folder",
+    "top1_confidence": 0.9959480166
+  },
+  {
+    "filename": "file folder_00260.tif",
+    "expected_label": "presentation",
+    "top1_confidence": 0.7932854891
+  },
+  {
+    "filename": "letter_00278.tif",
+    "expected_label": "email",
+    "top1_confidence": 0.9972061515
+  },
+  {
+    "filename": "questionnaire_00334.tif",
+    "expected_label": "questionnaire",
+    "top1_confidence": 0.9971926808
+  },
+  {
+    "filename": "invoice_00401.tif",
+    "expected_label": "invoice",
+    "top1_confidence": 0.9937229753
+  },
+  {
+    "filename": "scientific publication_00482.tif",
+    "expected_label": "scientific publication",
+    "top1_confidence": 0.9909884334
+  },
+  {
+    "filename": "resume_00489.tif",
+    "expected_label": "news article",
+    "top1_confidence": 0.9100652933
+  },
+  {
+    "filename": "resume_00540.tif",
+    "expected_label": "resume",
+    "top1_confidence": 0.9988368154
+  },
+  {
+    "filename": "form_00698.tif",
+    "expected_label": "form",
+    "top1_confidence": 0.9715934992
+  },
+  {
+    "filename": "scientific publication_00699.tif",
+    "expected_label": "news article",
+    "top1_confidence": 0.9647852182
+  },
+  {
+    "filename": "handwritten_00871.tif",
+    "expected_label": "questionnaire",
+    "top1_confidence": 0.9758353829
+  },
+  {
+    "filename": "presentation_00902.tif",
+    "expected_label": "presentation",
+    "top1_confidence": 0.9890351892
+  },
+  {
+    "filename": "file folder_00958.tif",
+    "expected_label": "form",
+    "top1_confidence": 0.608430326
+  },
+  {
+    "filename": "invoice_00959.tif",
+    "expected_label": "form",
+    "top1_confidence": 0.9380069375
+  },
+  {
+    "filename": "email_00967.tif",
+    "expected_label": "file folder",
+    "top1_confidence": 0.8976494074
+  },
+  {
+    "filename": "questionnaire_00973.tif",
+    "expected_label": "handwritten",
+    "top1_confidence": 0.9590069056
+  },
+  {
+    "filename": "specification_01023.tif",
+    "expected_label": "specification",
+    "top1_confidence": 0.9986279011
+  },
+  {
+    "filename": "memo_01024.tif",
+    "expected_label": "memo",
+    "top1_confidence": 0.9948279262
+  },
+  {
+    "filename": "news article_01056.tif",
+    "expected_label": "news article",
+    "top1_confidence": 0.9991514683
+  },
+  {
+    "filename": "presentation_01118.tif",
+    "expected_label": "file folder",
+    "top1_confidence": 0.9246100783
+  },
+  {
+    "filename": "budget_01123.tif",
+    "expected_label": "budget",
+    "top1_confidence": 0.9846897125
+  },
+  {
+    "filename": "letter_01184.tif",
+    "expected_label": "file folder",
+    "top1_confidence": 0.9888064861
+  },
+  {
+    "filename": "specification_01192.tif",
+    "expected_label": "memo",
+    "top1_confidence": 0.7913560867
+  },
+  {
+    "filename": "questionnaire_01208.tif",
+    "expected_label": "questionnaire",
+    "top1_confidence": 0.9971948862
+  },
+  {
+    "filename": "handwritten_01256.tif",
+    "expected_label": "advertisement",
+    "top1_confidence": 0.9865041971
+  },
+  {
+    "filename": "presentation_01268.tif",
+    "expected_label": "presentation",
+    "top1_confidence": 0.9838169813
+  },
+  {
+    "filename": "form_01272.tif",
+    "expected_label": "letter",
+    "top1_confidence": 0.9766189456
+  },
+  {
+    "filename": "email_01326.tif",
+    "expected_label": "letter",
+    "top1_confidence": 0.9476949573
+  },
+  {
+    "filename": "letter_01345.tif",
+    "expected_label": "letter",
+    "top1_confidence": 0.9932831526
+  },
+  {
+    "filename": "memo_01413.tif",
+    "expected_label": "email",
+    "top1_confidence": 0.9690083265
+  },
+  {
+    "filename": "invoice_01546.tif",
+    "expected_label": "invoice",
+    "top1_confidence": 0.9895654917
+  },
+  {
+    "filename": "email_01598.tif",
+    "expected_label": "email",
+    "top1_confidence": 0.9996209145
+  },
+  {
+    "filename": "letter_01649.tif",
+    "expected_label": "letter",
+    "top1_confidence": 0.9928556681
+  },
+  {
+    "filename": "handwritten_01662.tif",
+    "expected_label": "handwritten",
+    "top1_confidence": 0.9963296056
+  },
+  {
+    "filename": "advertisement_01711.tif",
+    "expected_label": "advertisement",
+    "top1_confidence": 0.9962416887
+  },
+  {
+    "filename": "invoice_01743.tif",
+    "expected_label": "budget",
+    "top1_confidence": 0.8530700207
+  },
+  {
+    "filename": "memo_01779.tif",
+    "expected_label": "memo",
+    "top1_confidence": 0.9955618382
+  },
+  {
+    "filename": "questionnaire_01822.tif",
+    "expected_label": "handwritten",
+    "top1_confidence": 0.9673318267
+  },
+  {
+    "filename": "budget_01854.tif",
+    "expected_label": "invoice",
+    "top1_confidence": 0.9841624498
+  },
+  {
+    "filename": "specification_01964.tif",
+    "expected_label": "specification",
+    "top1_confidence": 0.9980297685
+  },
+  {
+    "filename": "presentation_01968.tif",
+    "expected_label": "advertisement",
+    "top1_confidence": 0.8993152976
+  },
+  {
+    "filename": "scientific publication_01974.tif",
+    "expected_label": "scientific publication",
+    "top1_confidence": 0.9907767773
+  },
+  {
+    "filename": "news article_02016.tif",
+    "expected_label": "scientific publication",
+    "top1_confidence": 0.9389397502
+  },
+  {
+    "filename": "advertisement_02043.tif",
+    "expected_label": "news article",
+    "top1_confidence": 0.6951193213
+  },
+  {
+    "filename": "form_02126.tif",
+    "expected_label": "form",
+    "top1_confidence": 0.9742661715
+  },
+  {
+    "filename": "scientific report_02137.tif",
+    "expected_label": "budget",
+    "top1_confidence": 0.9372360706
+  },
+  {
+    "filename": "memo_02323.tif",
+    "expected_label": "letter",
+    "top1_confidence": 0.9627754092
+  },
+  {
+    "filename": "scientific report_02338.tif",
+    "expected_label": "scientific report",
+    "top1_confidence": 0.9342579842
+  }
+]
