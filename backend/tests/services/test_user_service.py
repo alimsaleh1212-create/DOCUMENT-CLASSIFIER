@@ -5,6 +5,7 @@ Key graded cases:
 - toggle_role writes audit record and clears cache
 - toggle_role blocks demotion of the only admin (409)
 """
+
 from __future__ import annotations
 
 import pytest
@@ -37,17 +38,19 @@ async def _create_admin(repo: FakeUserRepo, email: str = "admin@test.com") -> Us
 
 
 async def _create_reviewer(repo: FakeUserRepo, email: str = "r@test.com") -> UserOut:
-    from app.api.auth import hash_password  # noqa: PLC0415
+    import datetime
 
     # Manually seed to bypass the first-user-is-admin logic
-    import uuid, datetime  # noqa: PLC0415, E401
+    import uuid  # noqa: PLC0415, E401
+
+    from app.api.auth import hash_password  # noqa: PLC0415
 
     user = UserOut(
         id=str(uuid.uuid4()),
         email=email,
         role=Role.reviewer,
         is_active=True,
-        created_at=datetime.datetime.now(datetime.timezone.utc),
+        created_at=datetime.datetime.now(datetime.UTC),
     )
     return repo.seed(user, hash_password("pass"))
 
@@ -58,9 +61,7 @@ async def _create_reviewer(repo: FakeUserRepo, email: str = "r@test.com") -> Use
 
 
 @pytest.mark.asyncio
-async def test_get_me_returns_user(
-    repo: FakeUserRepo, svc: UserService
-) -> None:
+async def test_get_me_returns_user(repo: FakeUserRepo, svc: UserService) -> None:
     admin = await _create_admin(repo)
     result = await svc.get_me(admin.id)
     assert result.id == admin.id
@@ -90,9 +91,7 @@ async def test_toggle_role_writes_audit_record(
 
 
 @pytest.mark.asyncio
-async def test_toggle_role_updates_role_in_repo(
-    repo: FakeUserRepo, svc: UserService
-) -> None:
+async def test_toggle_role_updates_role_in_repo(repo: FakeUserRepo, svc: UserService) -> None:
     admin = await _create_admin(repo)
     reviewer = await _create_reviewer(repo)
 
@@ -128,14 +127,15 @@ async def test_toggle_role_allows_demotion_when_two_admins_exist(
 ) -> None:
     admin1 = await _create_admin(repo, "a1@test.com")
 
-    import uuid, datetime  # noqa: PLC0415, E401
+    import datetime
+    import uuid  # noqa: PLC0415, E401
 
     admin2_user = UserOut(
         id=str(uuid.uuid4()),
         email="a2@test.com",
         role=Role.admin,
         is_active=True,
-        created_at=datetime.datetime.now(datetime.timezone.utc),
+        created_at=datetime.datetime.now(datetime.UTC),
     )
     from app.api.auth import hash_password  # noqa: PLC0415
 

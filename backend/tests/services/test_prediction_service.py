@@ -6,10 +6,11 @@ Key graded cases:
 - relabel writes audit record
 - record_prediction writes audit record
 """
+
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -41,7 +42,7 @@ def actor() -> UserOut:
         email="reviewer@test.com",
         role=Role.reviewer,
         is_active=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
 
 
@@ -55,7 +56,7 @@ def _make_prediction(top1: float = 0.5, **kwargs: object) -> PredictionOut:
         top5=[(PredictionLabel.memo, top1)],
         overlay_url=None,
         model_version="test-v0",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         **kwargs,
     )
 

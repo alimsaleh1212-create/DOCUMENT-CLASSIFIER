@@ -57,6 +57,13 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "ANN", "B", "A", "SIM", "TCH"]
+ignore = [
+    "B008",   # FastAPI requires Depends() in function default arguments
+    "TCH001", # TYPE_CHECKING blocks break FastAPI's runtime get_type_hints resolution
+    "TCH002", # Same as TCH001 for third-party imports
+    "TCH003", # Same as TCH001 for stdlib imports
+    "ANN401", # Allow Any where unavoidable (e.g. lifespan, JSONB metadata)
+]
 
 [tool.mypy]
 python_version = "3.11"
@@ -64,6 +71,10 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["casbin", "casbin_sqlalchemy_adapter", "fastapi_cache", "fastapi_cache.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

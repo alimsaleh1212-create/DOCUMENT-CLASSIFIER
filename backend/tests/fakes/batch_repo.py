@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.domain.contracts import BatchOut, BatchStatus
 from app.repositories.interfaces import IBatchRepository
@@ -21,7 +21,7 @@ class FakeBatchRepo(IBatchRepository):
                 id=bid,
                 status=status,
                 document_count=i * 3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
 
     def seed(self, batch: BatchOut) -> BatchOut:
@@ -34,8 +34,8 @@ class FakeBatchRepo(IBatchRepository):
     async def get(self, batch_id: str) -> BatchOut:
         try:
             return self._store[batch_id]
-        except KeyError:
-            raise KeyError(f"Batch {batch_id} not found")
+        except KeyError as exc:
+            raise KeyError(f"Batch {batch_id} not found") from exc
 
     async def update_status(self, batch_id: str, status: BatchStatus) -> BatchOut:
         batch = await self.get(batch_id)

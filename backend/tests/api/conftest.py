@@ -4,6 +4,7 @@ Test fixtures for API-layer tests.
 Boots the app in USE_FAKES=1 mode — no DB, Vault, or Redis required.
 All repository and service dependencies are pre-wired to in-memory fakes.
 """
+
 from __future__ import annotations
 
 import os

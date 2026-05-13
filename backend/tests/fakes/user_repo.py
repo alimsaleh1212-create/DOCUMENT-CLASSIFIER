@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.domain.contracts import Role, UserOut
 from app.repositories.interfaces import IUserRepository
@@ -31,7 +31,7 @@ class FakeUserRepo(IUserRepository):
             email=email,
             role=role,
             is_active=True,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         return self.seed(user)
 
@@ -48,15 +48,15 @@ class FakeUserRepo(IUserRepository):
             email=email,
             role=role,
             is_active=True,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         return self.seed(user, hashed_password)
 
     async def get(self, user_id: str) -> UserOut:
         try:
             return self._store[user_id]
-        except KeyError:
-            raise KeyError(f"User {user_id} not found")
+        except KeyError as exc:
+            raise KeyError(f"User {user_id} not found") from exc
 
     async def get_by_email(self, email: str) -> UserOut | None:
         uid = self._by_email.get(email)

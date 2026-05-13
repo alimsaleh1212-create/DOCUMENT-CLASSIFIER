@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.domain.contracts import (
     AuditLogEntry,
-    BatchStatus,
     BatchOut,
+    BatchStatus,
     PredictionLabel,
     PredictionOut,
     Role,
@@ -69,7 +70,7 @@ class IAuditRepository(ABC):
         actor_id: str,
         action: str,
         target: str,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditLogEntry: ...
 
     @abstractmethod

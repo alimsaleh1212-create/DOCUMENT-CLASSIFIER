@@ -1,7 +1,7 @@
 """API tests: /me, /users, /users/{uid}/role."""
+
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from tests.api.conftest import auth_headers
@@ -26,9 +26,7 @@ def test_list_users_as_admin_succeeds(client: TestClient, admin_token: str) -> N
     assert isinstance(r.json(), list)
 
 
-def test_list_users_as_reviewer_returns_403(
-    client: TestClient, reviewer_token: str
-) -> None:
+def test_list_users_as_reviewer_returns_403(client: TestClient, reviewer_token: str) -> None:
     r = client.get("/users", headers=auth_headers(reviewer_token))
     assert r.status_code == 403
 

@@ -1,10 +1,10 @@
 """API tests: /predictions/recent, /predictions/{pid}/label."""
+
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.domain.contracts import PredictionLabel, PredictionOut
@@ -23,7 +23,7 @@ def _seed_prediction(top1: float) -> tuple[str, PredictionOut]:
         top5=[(PredictionLabel.memo, top1)],
         overlay_url=None,
         model_version="test-v0",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     return pid, p
 
@@ -39,9 +39,7 @@ def test_list_recent_no_token_returns_401(client: TestClient) -> None:
     assert r.status_code == 401
 
 
-def test_relabel_high_confidence_returns_422(
-    client: TestClient, admin_token: str
-) -> None:
+def test_relabel_high_confidence_returns_422(client: TestClient, admin_token: str) -> None:
     from app.api.deps import get_prediction_repo  # noqa: PLC0415
     from app.main import app  # noqa: PLC0415
 
@@ -57,9 +55,7 @@ def test_relabel_high_confidence_returns_422(
     assert r.status_code == 422
 
 
-def test_relabel_low_confidence_succeeds(
-    client: TestClient, admin_token: str
-) -> None:
+def test_relabel_low_confidence_succeeds(client: TestClient, admin_token: str) -> None:
     from app.api.deps import get_prediction_repo  # noqa: PLC0415
     from app.main import app  # noqa: PLC0415
 

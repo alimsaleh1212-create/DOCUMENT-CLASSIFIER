@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.domain.contracts import PredictionLabel, PredictionOut
 from app.repositories.interfaces import IPredictionRepository
@@ -34,7 +34,7 @@ class FakePredictionRepo(IPredictionRepository):
             top5=[(label, top1)],
             overlay_url=None,
             model_version="test-v0",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         return self.seed(p)
 
@@ -49,12 +49,10 @@ class FakePredictionRepo(IPredictionRepository):
     async def get(self, prediction_id: str) -> PredictionOut:
         try:
             return self._store[prediction_id]
-        except KeyError:
-            raise KeyError(f"Prediction {prediction_id} not found")
+        except KeyError as exc:
+            raise KeyError(f"Prediction {prediction_id} not found") from exc
 
-    async def update_label(
-        self, prediction_id: str, new_label: PredictionLabel
-    ) -> PredictionOut:
+    async def update_label(self, prediction_id: str, new_label: PredictionLabel) -> PredictionOut:
         prediction = await self.get(prediction_id)
         updated = prediction.model_copy(update={"label": new_label})
         self._store[prediction_id] = updated

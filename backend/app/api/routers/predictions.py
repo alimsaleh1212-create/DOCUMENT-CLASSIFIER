@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from app.api.deps import (
     get_audit_service,
@@ -12,7 +13,6 @@ from app.domain.contracts import PredictionLabel, PredictionOut, UserOut
 from app.repositories.interfaces import IPredictionRepository
 from app.services.interfaces import IAuditService
 from app.services.prediction_service import PredictionService
-from pydantic import BaseModel
 
 router = APIRouter(tags=["predictions"])
 

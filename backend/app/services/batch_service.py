@@ -4,6 +4,7 @@ BatchService — read-only batch queries with cache.
 No mutations, so no audit writes or cache invalidation here.
 Cache invalidation happens in PredictionService when a prediction is recorded.
 """
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -23,7 +24,10 @@ async def _cache_get(key: str) -> str | None:
         from fastapi_cache import FastAPICache  # noqa: PLC0415
 
         backend = FastAPICache.get_backend()
-        return await backend.get(key)
+        result = await backend.get(key)
+        if result is None:
+            return None
+        return result.decode() if isinstance(result, bytes) else result
     except Exception:
         return None
 
@@ -33,7 +37,7 @@ async def _cache_set(key: str, value: str, ttl: int) -> None:
         from fastapi_cache import FastAPICache  # noqa: PLC0415
 
         backend = FastAPICache.get_backend()
-        await backend.set(key, value, ttl)
+        await backend.set(key, value.encode(), ttl)
     except Exception:
         pass
 
@@ -65,7 +69,9 @@ class BatchService(IBatchService):
             return BatchOut.model_validate_json(cached)
         try:
             batch = await self._repo.get(batch_id)
-        except KeyError:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Batch not found")
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Batch not found"
+            ) from exc
         await _cache_set(cache_key, batch.model_dump_json(), _DETAIL_TTL)
         return batch

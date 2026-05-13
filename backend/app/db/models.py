@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -62,7 +63,7 @@ class Prediction(Base):
     )
     label: Mapped[str] = mapped_column(String(50), nullable=False)
     top1_confidence: Mapped[float] = mapped_column(nullable=False)
-    top5: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    top5: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     overlay_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     model_version: Mapped[str] = mapped_column(String(50), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -79,7 +80,7 @@ class AuditLog(Base):
     )
     action: Mapped[str] = mapped_column(String(20), nullable=False)
     target: Mapped[str] = mapped_column(String(255), nullable=False)
-    metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
+    metadata_: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONB, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default="now()"
     )

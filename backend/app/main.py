@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import sys
 import uuid
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import UTC
 from typing import Any
 
 import structlog
@@ -26,9 +28,7 @@ settings = Settings()
 class RequestIDMiddleware(BaseHTTPMiddleware):
     """Propagate or generate X-Request-ID; bind it into structlog context."""
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         structlog.contextvars.bind_contextvars(request_id=request_id)
         response = await call_next(request)
@@ -43,7 +43,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> Any:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if settings.use_fakes:
         await _boot_with_fakes(app)
     else:
@@ -88,9 +88,7 @@ async def _boot_production(app: FastAPI) -> None:
     app.state.db = session_factory
     app.state.jwt_signing_key = jwt_key
 
-    model_path = str(
-        pathlib.Path(__file__).parent / "infra" / "casbin" / "model.conf"
-    )
+    model_path = str(pathlib.Path(__file__).parent / "infra" / "casbin" / "model.conf")
     # casbin_sqlalchemy_adapter uses sync DSN (no +asyncpg)
     sync_dsn = dsn.replace("+asyncpg", "")
     adapter = CasbinAdapter(sync_dsn)
@@ -128,12 +126,8 @@ async def _boot_with_fakes(app: FastAPI) -> None:
     app.state.jwt_signing_key = "dev-secret-key-change-in-production"
 
     # Casbin enforcer loaded from the flat file — no DB needed
-    model_path = str(
-        pathlib.Path(__file__).parent / "infra" / "casbin" / "model.conf"
-    )
-    policy_path = str(
-        pathlib.Path(__file__).parent / "infra" / "casbin" / "policy.csv"
-    )
+    model_path = str(pathlib.Path(__file__).parent / "infra" / "casbin" / "model.conf")
+    policy_path = str(pathlib.Path(__file__).parent / "infra" / "casbin" / "policy.csv")
     enforcer = casbin.Enforcer(model_path, policy_path)
     app.state.enforcer = enforcer
 
@@ -174,10 +168,10 @@ class _FakeAuditRepo:
         actor_id: str,
         action: str,
         target: str,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> object:
         import uuid  # noqa: PLC0415
-        from datetime import datetime, timezone  # noqa: PLC0415
+        from datetime import datetime  # noqa: PLC0415
 
         from app.domain.contracts import AuditLogEntry  # noqa: PLC0415
         from tests.fakes.audit_service import FakeAuditService  # noqa: PLC0415
@@ -188,13 +182,13 @@ class _FakeAuditRepo:
             action=action,
             target=target,
             metadata=metadata,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
         if isinstance(self._svc, FakeAuditService):
             self._svc.records.append(entry)
         return entry
 
-    async def list(self, page: int = 1, limit: int = 50) -> list:
+    async def list(self, page: int = 1, limit: int = 50) -> list[Any]:
         from tests.fakes.audit_service import FakeAuditService  # noqa: PLC0415
 
         if isinstance(self._svc, FakeAuditService):
@@ -237,7 +231,7 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSON
 
 
 # Routers — mounted after the app is defined so middleware is already registered
-from app.api.routers import auth, audit, batches, predictions, users  # noqa: E402
+from app.api.routers import audit, auth, batches, predictions, users  # noqa: E402
 
 app.include_router(auth.router)
 app.include_router(users.router)

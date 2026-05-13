@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 from app.domain.contracts import AuditLogEntry
 from app.services.interfaces import IAuditService
@@ -18,7 +19,7 @@ class FakeAuditService(IAuditService):
         actor_id: str,
         action: str,
         target: str,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditLogEntry:
         entry = AuditLogEntry(
             id=str(uuid.uuid4()),
@@ -26,7 +27,7 @@ class FakeAuditService(IAuditService):
             action=action,
             target=target,
             metadata=metadata,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
         self.records.append(entry)
         return entry

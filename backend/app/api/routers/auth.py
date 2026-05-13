@@ -73,7 +73,7 @@ def _get_hashed_password(repo: IUserRepository, user_id: str) -> str:
     FakeUserRepo exposes get_hashed_password() for the fake mode.
     """
     if hasattr(repo, "get_hashed_password"):
-        return repo.get_hashed_password(user_id)  # type: ignore[union-attr]
+        return repo.get_hashed_password(user_id)  # type: ignore[no-any-return]
     # Production repositories must expose this; if they don't, raise early.
     raise NotImplementedError(
         "IUserRepository implementation must expose get_hashed_password(user_id)"

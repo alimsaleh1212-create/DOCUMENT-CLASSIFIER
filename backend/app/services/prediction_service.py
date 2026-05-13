@@ -3,6 +3,7 @@ PredictionService — record predictions and relabel them.
 
 Owns cache reads, invalidation, and audit writes for all prediction mutations.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,7 +25,10 @@ async def _cache_get(key: str) -> str | None:
     try:
         from fastapi_cache import FastAPICache  # noqa: PLC0415
 
-        return await FastAPICache.get_backend().get(key)
+        result = await FastAPICache.get_backend().get(key)
+        if result is None:
+            return None
+        return result.decode() if isinstance(result, bytes) else result
     except Exception:
         return None
 
@@ -33,7 +37,7 @@ async def _cache_set(key: str, value: str, ttl: int) -> None:
     try:
         from fastapi_cache import FastAPICache  # noqa: PLC0415
 
-        await FastAPICache.get_backend().set(key, value, ttl)
+        await FastAPICache.get_backend().set(key, value.encode(), ttl)
     except Exception:
         pass
 
@@ -52,9 +56,7 @@ class PredictionService(IPredictionService):
         self._repo = repo
         self._audit = audit
 
-    async def record_prediction(
-        self, prediction: PredictionOut, request_id: str
-    ) -> PredictionOut:
+    async def record_prediction(self, prediction: PredictionOut, request_id: str) -> PredictionOut:
         saved = await self._repo.create_idempotent(prediction)
 
         await self._audit.record(
@@ -94,8 +96,7 @@ class PredictionService(IPredictionService):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
-                    f"Relabeling not allowed: top-1 confidence "
-                    f"{existing.top1_confidence:.3f} ≥ 0.7"
+                    f"Relabeling not allowed: top-1 confidence {existing.top1_confidence:.3f} ≥ 0.7"
                 ),
             )
 

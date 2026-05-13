@@ -1,4 +1,5 @@
 """API tests: /auth/register and /auth/jwt/login."""
+
 from __future__ import annotations
 
 import pytest

@@ -5,10 +5,10 @@ All repository and service dependencies are defined here so they can be
 overridden via app.dependency_overrides in fake mode or tests.
 Production implementations are imported lazily to avoid circular imports.
 """
+
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
-from typing import Callable
+from collections.abc import AsyncGenerator, Callable
 
 import casbin
 import jwt
@@ -16,8 +16,8 @@ import structlog
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.auth import JWT_ALGORITHM, decode_access_token
-from app.domain.contracts import Role, UserOut
+from app.api.auth import decode_access_token
+from app.domain.contracts import UserOut
 from app.repositories.interfaces import (
     IAuditRepository,
     IBatchRepository,
@@ -64,41 +64,51 @@ async def get_session(request: Request) -> AsyncGenerator[AsyncSession, None]:
 async def get_user_repo(
     session: AsyncSession = Depends(get_session),
 ) -> IUserRepository:
-    from app.repositories.user_repo import UserRepository  # noqa: PLC0415
+    from app.repositories.user_repo import (
+        UserRepository,  # type: ignore[import-not-found]  # noqa: PLC0415
+    )
 
-    return UserRepository(session)
+    return UserRepository(session)  # type: ignore[no-any-return]
 
 
 async def get_batch_repo(
     session: AsyncSession = Depends(get_session),
 ) -> IBatchRepository:
-    from app.repositories.batch_repo import BatchRepository  # noqa: PLC0415
+    from app.repositories.batch_repo import (
+        BatchRepository,  # type: ignore[import-not-found]  # noqa: PLC0415
+    )
 
-    return BatchRepository(session)
+    return BatchRepository(session)  # type: ignore[no-any-return]
 
 
 async def get_prediction_repo(
     session: AsyncSession = Depends(get_session),
 ) -> IPredictionRepository:
-    from app.repositories.prediction_repo import PredictionRepository  # noqa: PLC0415
+    from app.repositories.prediction_repo import (
+        PredictionRepository,  # type: ignore[import-not-found]  # noqa: PLC0415
+    )
 
-    return PredictionRepository(session)
+    return PredictionRepository(session)  # type: ignore[no-any-return]
 
 
 async def get_audit_repo(
     session: AsyncSession = Depends(get_session),
 ) -> IAuditRepository:
-    from app.repositories.audit_repo import AuditRepository  # noqa: PLC0415
+    from app.repositories.audit_repo import (
+        AuditRepository,  # type: ignore[import-not-found]  # noqa: PLC0415
+    )
 
-    return AuditRepository(session)
+    return AuditRepository(session)  # type: ignore[no-any-return]
 
 
 async def get_audit_service(
     audit_repo: IAuditRepository = Depends(get_audit_repo),
 ) -> IAuditService:
-    from app.services.audit_service import AuditService  # noqa: PLC0415
+    from app.services.audit_service import (
+        AuditService,  # type: ignore[import-not-found]  # noqa: PLC0415
+    )
 
-    return AuditService(audit_repo)
+    return AuditService(audit_repo)  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +133,7 @@ async def get_current_user(
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    token = auth_header[len("Bearer "):]
+    token = auth_header[len("Bearer ") :]
 
     signing_key: str | None = getattr(request.app.state, "jwt_signing_key", None)
     if not signing_key:
@@ -141,15 +151,15 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
 
     try:
         return await user_repo.get(user_id)
-    except (KeyError, Exception):
+    except (KeyError, Exception) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
-        )
+        ) from exc
 
 
 # ---------------------------------------------------------------------------

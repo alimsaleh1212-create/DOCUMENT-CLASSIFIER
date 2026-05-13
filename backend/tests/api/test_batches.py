@@ -1,4 +1,5 @@
 """API tests: /batches, /batches/{bid}."""
+
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -26,8 +27,6 @@ def test_get_batch_valid_id(client: TestClient, admin_token: str) -> None:
     assert r.json()["id"] == bid
 
 
-def test_get_batch_unknown_id_returns_404(
-    client: TestClient, admin_token: str
-) -> None:
+def test_get_batch_unknown_id_returns_404(client: TestClient, admin_token: str) -> None:
     r = client.get("/batches/nonexistent-id", headers=auth_headers(admin_token))
     assert r.status_code == 404

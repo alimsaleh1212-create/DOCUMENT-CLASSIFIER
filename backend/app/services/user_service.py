@@ -5,6 +5,7 @@ Owns cache reads (@cache) and cache invalidation (FastAPICache.clear).
 Calls audit_service.record() inside every mutating operation.
 Never touches HTTP types or SQLAlchemy.
 """
+
 from __future__ import annotations
 
 import structlog
@@ -29,7 +30,10 @@ async def _cache_get(key: str) -> str | None:
         from fastapi_cache import FastAPICache  # noqa: PLC0415
 
         backend = FastAPICache.get_backend()
-        return await backend.get(key)
+        result = await backend.get(key)
+        if result is None:
+            return None
+        return result.decode() if isinstance(result, bytes) else result
     except Exception:
         return None
 
@@ -39,7 +43,7 @@ async def _cache_set(key: str, value: str) -> None:
         from fastapi_cache import FastAPICache  # noqa: PLC0415
 
         backend = FastAPICache.get_backend()
-        await backend.set(key, value, _CACHE_TTL)
+        await backend.set(key, value.encode(), _CACHE_TTL)
     except Exception:
         pass
 
@@ -70,9 +74,7 @@ class UserService(IUserService):
     async def list_users(self) -> list[UserOut]:
         return await self._repo.list_users()
 
-    async def toggle_role(
-        self, actor: UserOut, target_uid: str, new_role: Role
-    ) -> UserOut:
+    async def toggle_role(self, actor: UserOut, target_uid: str, new_role: Role) -> UserOut:
         target = await self._repo.get(target_uid)
         old_role = target.role
 
