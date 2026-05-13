@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     minio_port: int = 9000
     minio_console_port: int = 9001
     sftp_port: int = 2222
+    redis_host: str = "redis"
+    minio_endpoint: str = "minio:9000"
+    sftp_host: str = "sftp"
+    sftp_container_port: int = 22
+    sftp_poll_interval_seconds: int = 5
+    sftp_max_file_bytes: int = 50 * 1024 * 1024
 
     cors_origins: list[str] = ["http://localhost:5173"]
     model_threshold_top1: float = 0.85

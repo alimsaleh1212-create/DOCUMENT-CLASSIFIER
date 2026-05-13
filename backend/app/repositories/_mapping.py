@@ -11,6 +11,7 @@ from app.domain.contracts import (
     BatchStatus,
     PredictionLabel,
     PredictionOut,
+    DocumentOut,
     Role,
     UserOut,
 )
@@ -38,6 +39,15 @@ def batch_to_domain(batch: models.Batch) -> BatchOut:
         status=BatchStatus(batch.status),
         document_count=batch.document_count,
         created_at=batch.created_at,
+    )
+
+
+def document_to_domain(document: models.Document) -> DocumentOut:
+    return DocumentOut(
+        id=str(document.id),
+        batch_id=str(document.batch_id),
+        blob_key=document.blob_key,
+        created_at=document.created_at,
     )
 
 

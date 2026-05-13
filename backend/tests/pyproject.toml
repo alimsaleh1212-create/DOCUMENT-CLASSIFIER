@@ -1,0 +1,23 @@
+[project]
+name = "doc-classifier-member3-tests"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "pydantic>=2",
+    "pydantic-settings>=2",
+    "sqlalchemy[asyncio]>=2",
+    "pillow>=10.3",
+    "tenacity>=8.3",
+    "structlog>=24.1",
+    "hvac>=2.3",
+    "minio>=7.2",
+    "redis>=5",
+    "rq>=1.16",
+    "paramiko>=3.4",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = [".."]
