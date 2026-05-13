@@ -8,12 +8,11 @@ CPU-only, p95 < 1.0s on modern laptop hardware.
 """
 import io
 from pathlib import Path
-from typing import Optional, List, Tuple
 
 import structlog
 import torch
 import torch.nn as nn
-import torchvision.transforms as T
+import torchvision.transforms as T  # noqa: N812
 from PIL import Image
 
 # ------------------------------------------------------------------
@@ -22,9 +21,12 @@ from PIL import Image
 # ------------------------------------------------------------------
 from pydantic import BaseModel, Field
 
+
 class PredictionOut(BaseModel):
     label: str = Field(..., description="Predicted layout class, one of 16 RVL-CDIP classes")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Softmax confidence for the predicted label")
+    confidence: float = Field(
+        ..., ge=0.0, le=1.0, description="Softmax confidence for the predicted label"
+    )
 
 # ------------------------------------------------------------------
 # Module-level constants (derived from training; keep in sync with
@@ -52,13 +54,13 @@ class Predictor:
     method. The constructor is private – use get_predictor() to obtain
     the process-wide singleton.
     """
-    def __init__(self, weights_path: Path):
+    def __init__(self, weights_path: Path) -> None:
         self.weights_path = weights_path
-        self._model: Optional[nn.Module] = None
+        self._model: nn.Module | None = None
         self._transform = self._build_transform()
         self._load_model()
 
-    def _build_transform(self):
+    def _build_transform(self) -> T.Compose:
         """Deterministic evaluation transform: grayscale → RGB → resize → normalize."""
         return T.Compose([
             T.Grayscale(3),                          # single-channel TIFF → 3 channels
@@ -67,9 +69,9 @@ class Predictor:
             T.Normalize(mean=MEAN, std=STD),
         ])
 
-    def _load_model(self):
+    def _load_model(self) -> None:
         """Instantiate the same backbone architecture and load saved state_dict."""
-        from torchvision.models import convnext_tiny, ConvNeXt_Tiny_Weights
+        from torchvision.models import ConvNeXt_Tiny_Weights, convnext_tiny
 
         log = structlog.get_logger()
         log.info("predictor.loading_weights", path=str(self.weights_path))
@@ -122,7 +124,7 @@ class Predictor:
     # ------------------------------------------------------------------
     # NEW METHOD – for top‑5 in the worker (does NOT affect golden tests)
     # ------------------------------------------------------------------
-    def predict_topk(self, image_bytes: bytes, k: int = 5) -> List[Tuple[str, float]]:
+    def predict_topk(self, image_bytes: bytes, k: int = 5) -> list[tuple[str, float]]:
         """Return top‑k labels and confidences (used by the worker for top‑5)."""
         if self._model is None:
             raise RuntimeError("Model not loaded")
@@ -145,9 +147,9 @@ class Predictor:
 # ------------------------------------------------------------------
 # Singleton loader – called by FastAPI lifespan or worker entrypoint
 # ------------------------------------------------------------------
-_predictor_singleton: Optional[Predictor] = None
+_predictor_singleton: Predictor | None = None
 
-def get_predictor(weights_path: Optional[Path] = None) -> Predictor:
+def get_predictor(weights_path: Path | None = None) -> Predictor:
     """
     Return the process-wide Predictor singleton. Weights are loaded only once.
     If weights_path is provided on the first call, it is used; subsequent calls

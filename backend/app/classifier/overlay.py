@@ -7,6 +7,7 @@ below the original image.
 """
 
 import io
+
 from PIL import Image, ImageDraw, ImageFont
 
 # ------------------------------------------------------------------
@@ -27,7 +28,7 @@ def _load_font(size: int = FONT_SIZE) -> ImageFont.ImageFont:
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
             size,
         )
-    except (OSError, IOError):
+    except OSError:
         return ImageFont.load_default()
 
 _FONT = _load_font()          # cached once

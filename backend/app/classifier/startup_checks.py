@@ -8,7 +8,7 @@ Called both by the API lifespan and the inference worker.
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 
@@ -26,20 +26,20 @@ def assert_weights_present(weights_path: Path) -> None:
         raise ClassifierStartupError(f"Classifier weights not found: {weights_path}")
 
 
-def _load_model_card(model_card_path: Path) -> Dict[str, Any]:
+def _load_model_card(model_card_path: Path) -> dict[str, Any]:
     """Load and return model card JSON, raising on missing or malformed file."""
     if not model_card_path.exists():
         log.error("startup_check.model_card_missing", path=str(model_card_path))
         raise ClassifierStartupError(f"Model card not found: {model_card_path}")
     try:
-        with open(model_card_path, "r") as f:
+        with open(model_card_path) as f:
             return json.load(f)
     except json.JSONDecodeError as e:
         log.error("startup_check.model_card_invalid", path=str(model_card_path), error=str(e))
-        raise ClassifierStartupError(f"Model card is not valid JSON: {e}")
+        raise ClassifierStartupError(f"Model card is not valid JSON: {e}") from e
 
 
-def assert_sha256_matches(weights_path: Path, model_card: Dict[str, Any]) -> None:
+def assert_sha256_matches(weights_path: Path, model_card: dict[str, Any]) -> None:
     """Raise if the SHA-256 of the weights differs from model card."""
     expected_sha = model_card.get("sha256")
     if not expected_sha:
@@ -57,7 +57,7 @@ def assert_sha256_matches(weights_path: Path, model_card: Dict[str, Any]) -> Non
         )
 
 
-def assert_threshold_met(model_card: Dict[str, Any], min_top1: float) -> None:
+def assert_threshold_met(model_card: dict[str, Any], min_top1: float) -> None:
     """Raise if model card test top-1 is below the required minimum."""
     test_top1 = model_card.get("test_top1")
     if test_top1 is None:
@@ -73,9 +73,9 @@ def assert_threshold_met(model_card: Dict[str, Any], min_top1: float) -> None:
 
 
 def run_all_startup_checks(
-    weights_path: Optional[Path] = None,
-    model_card_path: Optional[Path] = None,
-    min_top1: Optional[float] = None,
+    weights_path: Path | None = None,
+    model_card_path: Path | None = None,
+    min_top1: float | None = None,
 ) -> None:
     """
     Run all startup checks in order, using sensible defaults when arguments are None.

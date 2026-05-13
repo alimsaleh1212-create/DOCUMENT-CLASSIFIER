@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import uuid
 
+import pytest
+
 from app.domain.contracts import ClassifyJob
 from app.infra import queue as queue_module
 
@@ -14,7 +16,7 @@ class FakeRedis:
 
 
 class FakeQueue:
-    instances: list["FakeQueue"] = []
+    instances: list[FakeQueue] = []
 
     def __init__(self, name: str, connection: str) -> None:
         self.name = name
@@ -26,7 +28,7 @@ class FakeQueue:
         self.enqueued.append((job_func, payload))
 
 
-def test_rq_queue_enqueues_serialized_classify_job(monkeypatch) -> None:
+def test_rq_queue_enqueues_serialized_classify_job(monkeypatch: pytest.MonkeyPatch) -> None:
     FakeQueue.instances.clear()
     monkeypatch.setattr(queue_module, "Redis", FakeRedis)
     monkeypatch.setattr(queue_module, "Queue", FakeQueue)
@@ -47,7 +49,7 @@ def test_rq_queue_enqueues_serialized_classify_job(monkeypatch) -> None:
     assert json.loads(fake_queue.enqueued[0][1]) == job.model_dump()
 
 
-def test_build_worker_queues_returns_classify_queue(monkeypatch) -> None:
+def test_build_worker_queues_returns_classify_queue(monkeypatch: pytest.MonkeyPatch) -> None:
     FakeQueue.instances.clear()
     monkeypatch.setattr(queue_module, "Redis", FakeRedis)
     monkeypatch.setattr(queue_module, "Queue", FakeQueue)
