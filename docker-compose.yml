@@ -17,15 +17,15 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: docclass
-      POSTGRES_PASSWORD: docclass
-      POSTGRES_DB: docclass
+      POSTGRES_USER: "${POSTGRES_USER:-docclass}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB:-docclass}"
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U docclass"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docclass}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -47,8 +47,8 @@ services:
     image: minio/minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-minioadmin}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
     ports:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
@@ -66,7 +66,7 @@ services:
       - "${SFTP_PORT:-2222}:22"
     volumes:
       - sftpdata:/home/docscanner/incoming
-    command: "docscanner:scan123:1001"
+    command: "${SFTP_USER:-docscanner}:${SFTP_PASSWORD}:1001"
 
   migrate:
     build:
@@ -77,7 +77,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql+asyncpg://docclass:docclass@db:5432/docclass"
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-docclass}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-docclass}"
 
   api:
     build:
@@ -98,11 +98,11 @@ services:
     environment:
       VAULT_ADDR: "http://vault:8200"
       VAULT_TOKEN: "${VAULT_TOKEN:-dev-root-token}"
-      DATABASE_URL: "postgresql+asyncpg://docclass:docclass@db:5432/docclass"
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-docclass}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-docclass}"
       REDIS_URL: "redis://redis:6379/0"
       MINIO_ENDPOINT: "minio:9000"
-      MINIO_ACCESS_KEY: "minioadmin"
-      MINIO_SECRET_KEY: "minioadmin"
+      MINIO_ACCESS_KEY: "${MINIO_ROOT_USER:-minioadmin}"
+      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD}"
 
   worker:
     build:
@@ -121,8 +121,8 @@ services:
       VAULT_TOKEN: "${VAULT_TOKEN:-dev-root-token}"
       REDIS_URL: "redis://redis:6379/0"
       MINIO_ENDPOINT: "minio:9000"
-      MINIO_ACCESS_KEY: "minioadmin"
-      MINIO_SECRET_KEY: "minioadmin"
+      MINIO_ACCESS_KEY: "${MINIO_ROOT_USER:-minioadmin}"
+      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD}"
 
   sftp-ingest:
     build:
@@ -139,12 +139,12 @@ services:
     environment:
       REDIS_URL: "redis://redis:6379/0"
       MINIO_ENDPOINT: "minio:9000"
-      MINIO_ACCESS_KEY: "minioadmin"
-      MINIO_SECRET_KEY: "minioadmin"
+      MINIO_ACCESS_KEY: "${MINIO_ROOT_USER:-minioadmin}"
+      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD}"
       SFTP_HOST: "sftp"
       SFTP_PORT: "22"
-      SFTP_USER: "docscanner"
-      SFTP_PASSWORD: "scan123"
+      SFTP_USER: "${SFTP_USER:-docscanner}"
+      SFTP_PASSWORD: "${SFTP_PASSWORD}"
 
   frontend:
     build:

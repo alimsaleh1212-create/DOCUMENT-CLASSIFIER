@@ -18,12 +18,19 @@ vault secrets enable -path=secret kv-v2 2>/dev/null || true
 vault kv put secret/jwt/signing_key key="$(openssl rand -hex 32)"
 
 # Postgres DSN
-vault kv put secret/postgres/dsn dsn="postgresql+asyncpg://docclass:docclass@db:5432/docclass"
+POSTGRES_USER="${POSTGRES_USER:-docclass}"
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-docclass}"
+POSTGRES_DB="${POSTGRES_DB:-docclass}"
+vault kv put secret/postgres/dsn dsn="postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}"
 
 # MinIO credentials
-vault kv put secret/minio/credentials access_key="minioadmin" secret_key="minioadmin"
+vault kv put secret/minio/credentials \
+    access_key="${MINIO_ROOT_USER:-minioadmin}" \
+    secret_key="${MINIO_ROOT_PASSWORD:-minioadmin}"
 
 # SFTP credentials
-vault kv put secret/sftp/credentials user="docscanner" password="scan123"
+vault kv put secret/sftp/credentials \
+    user="${SFTP_USER:-docscanner}" \
+    password="${SFTP_PASSWORD:-scan123}"
 
 echo "Vault seeding complete."
