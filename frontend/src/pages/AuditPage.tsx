@@ -20,7 +20,7 @@ function ActionChip({ action }: { action: string }) {
         display: "inline-block",
         padding: "0.15rem 0.5rem",
         borderRadius: "4px",
-        fontSize: "11px",
+        fontSize: "13px",
         fontFamily: "var(--font-mono)",
         fontWeight: "500",
         letterSpacing: "0.04em",
@@ -74,7 +74,7 @@ export default function AuditPage() {
       </button>
       <span
         style={{
-          fontSize: "12px",
+          fontSize: "14px",
           fontFamily: "var(--font-mono)",
           color: "var(--text-muted)",
           minWidth: "60px",
@@ -107,7 +107,7 @@ export default function AuditPage() {
             border: "1px solid rgba(239,68,68,0.2)",
             borderRadius: "var(--radius)",
             color: "var(--danger)",
-            fontSize: "13px",
+            fontSize: "15px",
           }}
         >
           Failed to load audit log.
@@ -150,12 +150,12 @@ export default function AuditPage() {
                 style={{ animationDelay: `${idx * 25}ms` }}
               >
                 <td>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
                     {formatTime(entry.timestamp)}
                   </span>
                 </td>
                 <td>
-                  <code className="mono" style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                  <code className="mono" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
                     {entry.actor_id === "system" ? (
                       <span style={{ color: "var(--text-dim)" }}>system</span>
                     ) : (
@@ -167,13 +167,13 @@ export default function AuditPage() {
                   <ActionChip action={entry.action} />
                 </td>
                 <td>
-                  <code className="mono" style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                  <code className="mono" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
                     {entry.target.slice(0, 12)}…
                   </code>
                 </td>
                 <td>
                   {entry.metadata ? (
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-dim)" }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-dim)" }}>
                       {Object.entries(entry.metadata)
                         .map(([k, v]) => `${k}: ${String(v)}`)
                         .join(" · ")}

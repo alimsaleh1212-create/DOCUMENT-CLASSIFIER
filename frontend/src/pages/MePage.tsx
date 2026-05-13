@@ -19,7 +19,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
     >
       <span
         style={{
-          fontSize: "10px",
+          fontSize: "12px",
           fontFamily: "var(--font-mono)",
           fontWeight: "500",
           letterSpacing: "0.08em",
@@ -29,7 +29,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
       >
         {label}
       </span>
-      <span style={{ color: "var(--text)", fontSize: "14px" }}>{value}</span>
+      <span style={{ color: "var(--text)", fontSize: "16px" }}>{value}</span>
     </div>
   );
 }
@@ -67,7 +67,7 @@ export default function MePage() {
             border: "1px solid rgba(239,68,68,0.2)",
             borderRadius: "var(--radius)",
             color: "var(--danger)",
-            fontSize: "13px",
+            fontSize: "15px",
           }}
         >
           Failed to load profile.
@@ -100,7 +100,7 @@ export default function MePage() {
                 justifyContent: "center",
                 fontFamily: "var(--font-display)",
                 fontWeight: "700",
-                fontSize: "18px",
+                fontSize: "20px",
                 color: "#06080F",
                 flexShrink: 0,
               }}
@@ -112,7 +112,7 @@ export default function MePage() {
                 style={{
                   fontFamily: "var(--font-display)",
                   fontWeight: "700",
-                  fontSize: "16px",
+                  fontSize: "18px",
                   color: "#E8F0FF",
                   marginBottom: "0.25rem",
                 }}
@@ -129,7 +129,7 @@ export default function MePage() {
             style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
           >
             <div className="animate-fade-up">
-              <Field label="User ID" value={<code className="mono" style={{ fontSize: "12px", color: "var(--text-muted)" }}>{user.id}</code>} />
+              <Field label="User ID" value={<code className="mono" style={{ fontSize: "14px", color: "var(--text-muted)" }}>{user.id}</code>} />
             </div>
             <div className="animate-fade-up">
               <Field label="Email" value={user.email} />

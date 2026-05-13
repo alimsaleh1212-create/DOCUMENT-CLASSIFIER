@@ -102,7 +102,7 @@ export default function BatchDetailPage() {
                 borderRadius: "var(--radius)",
               }}
             >
-              <div style={{ fontSize: "10px", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-dim)", marginBottom: "0.375rem" }}>
+              <div style={{ fontSize: "12px", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-dim)", marginBottom: "0.375rem" }}>
                 {item.label}
               </div>
               <div>{item.value}</div>
@@ -122,10 +122,10 @@ export default function BatchDetailPage() {
             justifyContent: "space-between",
           }}
         >
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: "600", fontSize: "14px" }}>
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: "600", fontSize: "16px" }}>
             Predictions
           </span>
-          <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+          <span style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
             {isLoading ? "…" : `${predictions.length} result${predictions.length !== 1 ? "s" : ""}`}
           </span>
         </div>
@@ -166,7 +166,7 @@ export default function BatchDetailPage() {
                 style={{ animationDelay: `${idx * 40}ms` }}
               >
                 <td>
-                  <code className="mono" style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                  <code className="mono" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
                     {pred.document_id.slice(0, 8)}…
                   </code>
                 </td>
@@ -177,7 +177,7 @@ export default function BatchDetailPage() {
                   <ConfidenceBar value={pred.top1_confidence} />
                 </td>
                 <td>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-muted)" }}>
                     {pred.model_version}
                   </span>
                 </td>
@@ -187,12 +187,12 @@ export default function BatchDetailPage() {
                       href={pred.overlay_url}
                       target="_blank"
                       rel="noreferrer"
-                      style={{ color: "var(--accent)", fontSize: "12px", textDecoration: "none" }}
+                      style={{ color: "var(--accent)", fontSize: "14px", textDecoration: "none" }}
                     >
                       View ↗
                     </a>
                   ) : (
-                    <span style={{ color: "var(--text-dim)", fontSize: "12px" }}>—</span>
+                    <span style={{ color: "var(--text-dim)", fontSize: "14px" }}>—</span>
                   )}
                 </td>
 
@@ -243,7 +243,7 @@ export default function BatchDetailPage() {
                     ) : (
                       <span
                         style={{
-                          fontSize: "11px",
+                          fontSize: "13px",
                           color: "var(--text-dim)",
                           fontFamily: "var(--font-mono)",
                         }}

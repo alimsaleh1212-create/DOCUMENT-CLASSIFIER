@@ -123,7 +123,7 @@ export default function RegisterPage() {
             <p
               style={{
                 color: "var(--text-muted)",
-                fontSize: "12px",
+                fontSize: "14px",
                 fontFamily: "var(--font-mono)",
                 letterSpacing: "0.04em",
                 margin: 0,
@@ -161,7 +161,7 @@ export default function RegisterPage() {
                 htmlFor="reg-email"
                 style={{
                   display: "block",
-                  fontSize: "12px",
+                  fontSize: "14px",
                   fontWeight: "500",
                   color: "var(--text-muted)",
                   marginBottom: "0.375rem",
@@ -189,7 +189,7 @@ export default function RegisterPage() {
                 htmlFor="reg-password"
                 style={{
                   display: "block",
-                  fontSize: "12px",
+                  fontSize: "14px",
                   fontWeight: "500",
                   color: "var(--text-muted)",
                   marginBottom: "0.375rem",
@@ -218,7 +218,7 @@ export default function RegisterPage() {
                 htmlFor="reg-confirm"
                 style={{
                   display: "block",
-                  fontSize: "12px",
+                  fontSize: "14px",
                   fontWeight: "500",
                   color: "var(--text-muted)",
                   marginBottom: "0.375rem",
@@ -248,7 +248,7 @@ export default function RegisterPage() {
               {confirm && confirm !== password && (
                 <p
                   style={{
-                    fontSize: "11px",
+                    fontSize: "13px",
                     color: "var(--danger)",
                     margin: "0.3rem 0 0",
                     fontFamily: "var(--font-mono)",
@@ -268,7 +268,7 @@ export default function RegisterPage() {
                   border: "1px solid rgba(239,68,68,0.2)",
                   borderRadius: "var(--radius)",
                   color: "var(--danger)",
-                  fontSize: "12px",
+                  fontSize: "14px",
                   marginBottom: "1rem",
                   lineHeight: "1.5",
                 }}
@@ -299,7 +299,7 @@ export default function RegisterPage() {
               textAlign: "center",
             }}
           >
-            <p style={{ fontSize: "12px", color: "var(--text-dim)", margin: 0 }}>
+            <p style={{ fontSize: "14px", color: "var(--text-dim)", margin: 0 }}>
               Already have an account?{" "}
               <Link
                 to="/login"
@@ -319,7 +319,7 @@ export default function RegisterPage() {
             background: "var(--bg-surface)",
             border: "1px solid var(--border-subtle)",
             borderRadius: "var(--radius)",
-            fontSize: "11px",
+            fontSize: "13px",
             color: "var(--text-dim)",
             fontFamily: "var(--font-mono)",
             lineHeight: "1.6",
@@ -345,7 +345,7 @@ export default function RegisterPage() {
         <p
           style={{
             textAlign: "center",
-            fontSize: "11px",
+            fontSize: "13px",
             color: "var(--text-dim)",
             fontFamily: "var(--font-mono)",
             marginTop: "1rem",

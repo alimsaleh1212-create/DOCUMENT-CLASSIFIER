@@ -38,7 +38,7 @@ export default function BatchesListPage() {
             gap: "5px",
             padding: "0.2rem 0.6rem",
             borderRadius: "20px",
-            fontSize: "10px",
+            fontSize: "12px",
             fontFamily: "var(--font-mono)",
             letterSpacing: "0.06em",
             textTransform: "uppercase",
@@ -50,8 +50,8 @@ export default function BatchesListPage() {
         >
           <span
             style={{
-              width: "5px",
-              height: "5px",
+              width: "6px",
+              height: "6px",
               borderRadius: "50%",
               background: cacheStatus === "HIT" ? "var(--success)" : "var(--text-muted)",
             }}
@@ -83,7 +83,7 @@ export default function BatchesListPage() {
             border: "1px solid rgba(239,68,68,0.2)",
             borderRadius: "var(--radius)",
             color: "var(--danger)",
-            fontSize: "13px",
+            fontSize: "15px",
           }}
         >
           Failed to load batches.
@@ -131,7 +131,7 @@ export default function BatchesListPage() {
                 <td>
                   <code
                     className="mono"
-                    style={{ fontSize: "11px", color: "var(--text-muted)" }}
+                    style={{ fontSize: "13px", color: "var(--text-muted)" }}
                   >
                     {batch.id.slice(0, 8)}…
                   </code>
@@ -143,21 +143,21 @@ export default function BatchesListPage() {
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: "13px",
+                      fontSize: "15px",
                       color: "var(--text)",
                     }}
                   >
                     {batch.document_count}
                   </span>
                 </td>
-                <td style={{ color: "var(--text-muted)", fontSize: "12px" }}>
+                <td style={{ color: "var(--text-muted)", fontSize: "14px" }}>
                   {formatDate(batch.created_at)}
                 </td>
                 <td style={{ textAlign: "right" }}>
                   <Link
                     to={`/batches/${batch.id}`}
                     className="btn btn-ghost btn-sm"
-                    style={{ fontSize: "12px" }}
+                    style={{ fontSize: "14px" }}
                   >
                     View →
                   </Link>

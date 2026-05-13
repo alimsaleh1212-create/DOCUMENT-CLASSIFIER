@@ -71,7 +71,7 @@ export default function AdminUsersPage() {
             border: "1px solid rgba(239,68,68,0.2)",
             borderRadius: "var(--radius)",
             color: "var(--danger)",
-            fontSize: "13px",
+            fontSize: "15px",
           }}
         >
           Failed to load users.
@@ -129,14 +129,14 @@ export default function AdminUsersPage() {
                         justifyContent: "center",
                         fontFamily: "var(--font-display)",
                         fontWeight: "700",
-                        fontSize: "11px",
+                        fontSize: "13px",
                         color: "#06080F",
                         flexShrink: 0,
                       }}
                     >
                       {user.email[0].toUpperCase()}
                     </div>
-                    <span style={{ fontSize: "13px" }}>{user.email}</span>
+                    <span style={{ fontSize: "15px" }}>{user.email}</span>
                   </div>
                 </td>
                 <td>
@@ -145,7 +145,7 @@ export default function AdminUsersPage() {
                 <td>
                   <span
                     style={{
-                      fontSize: "12px",
+                      fontSize: "14px",
                       color: user.is_active ? "var(--success)" : "var(--danger)",
                       fontFamily: "var(--font-mono)",
                     }}
@@ -153,7 +153,7 @@ export default function AdminUsersPage() {
                     {user.is_active ? "active" : "inactive"}
                   </span>
                 </td>
-                <td style={{ color: "var(--text-muted)", fontSize: "12px" }}>
+                <td style={{ color: "var(--text-muted)", fontSize: "14px" }}>
                   {formatDate(user.created_at)}
                 </td>
                 <td>

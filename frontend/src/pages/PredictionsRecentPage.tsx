@@ -38,7 +38,7 @@ export default function PredictionsRecentPage() {
             border: "1px solid rgba(239,68,68,0.2)",
             borderRadius: "var(--radius)",
             color: "var(--danger)",
-            fontSize: "13px",
+            fontSize: "15px",
           }}
         >
           Failed to load predictions.
@@ -82,7 +82,7 @@ export default function PredictionsRecentPage() {
                 style={{ animationDelay: `${idx * 30}ms` }}
               >
                 <td>
-                  <code className="mono" style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                  <code className="mono" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
                     {pred.document_id.slice(0, 8)}…
                   </code>
                 </td>
@@ -95,17 +95,17 @@ export default function PredictionsRecentPage() {
                 <td>
                   <Link
                     to={`/batches/${pred.batch_id}`}
-                    style={{ color: "var(--accent)", fontSize: "12px", textDecoration: "none", fontFamily: "var(--font-mono)" }}
+                    style={{ color: "var(--accent)", fontSize: "14px", textDecoration: "none", fontFamily: "var(--font-mono)" }}
                   >
                     {pred.batch_id.slice(0, 8)}…
                   </Link>
                 </td>
                 <td>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-muted)" }}>
                     {pred.model_version}
                   </span>
                 </td>
-                <td style={{ color: "var(--text-muted)", fontSize: "12px" }}>
+                <td style={{ color: "var(--text-muted)", fontSize: "14px" }}>
                   {formatDate(pred.created_at)}
                 </td>
               </tr>

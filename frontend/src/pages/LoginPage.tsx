@@ -129,7 +129,7 @@ export default function LoginPage() {
             <p
               style={{
                 color: "var(--text-muted)",
-                fontSize: "12px",
+                fontSize: "14px",
                 fontFamily: "var(--font-mono)",
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
@@ -159,7 +159,7 @@ export default function LoginPage() {
                 border: "1px solid rgba(16,185,129,0.25)",
                 borderRadius: "var(--radius)",
                 color: "var(--success)",
-                fontSize: "12px",
+                fontSize: "14px",
                 marginBottom: "1.25rem",
               }}
             >
@@ -232,7 +232,7 @@ export default function LoginPage() {
                   border: "1px solid rgba(239,68,68,0.2)",
                   borderRadius: "var(--radius)",
                   color: "var(--danger)",
-                  fontSize: "12px",
+                  fontSize: "14px",
                   marginBottom: "1rem",
                   lineHeight: "1.5",
                 }}
@@ -259,7 +259,7 @@ export default function LoginPage() {
               textAlign: "center",
             }}
           >
-            <p style={{ fontSize: "12px", color: "var(--text-dim)", margin: 0 }}>
+            <p style={{ fontSize: "14px", color: "var(--text-dim)", margin: 0 }}>
               No account?{" "}
               <Link
                 to="/register"
@@ -275,7 +275,7 @@ export default function LoginPage() {
         <p
           style={{
             textAlign: "center",
-            fontSize: "11px",
+            fontSize: "13px",
             color: "var(--text-dim)",
             fontFamily: "var(--font-mono)",
             marginTop: "1.25rem",
