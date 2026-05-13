@@ -9,23 +9,24 @@ from typing import Protocol
 
 import structlog
 from tenacity import (
+    RetryError,
     Retrying,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
-    RetryError,
 )
 
-# Official contracts (from M2)
-from backend.app.domain.contracts import (
-    PredictionOut,
-    PredictionLabel,
-    ClassifyJob,
-)
+from backend.app.classifier.overlay import render_overlay
 
 # Predictor and overlay (your modules)
 from backend.app.classifier.predictor import Predictor
-from backend.app.classifier.overlay import render_overlay
+
+# Official contracts (from M2)
+from backend.app.domain.contracts import (
+    ClassifyJob,
+    PredictionLabel,
+    PredictionOut,
+)
 
 # ---------------------------------------------------------------------------
 # Label mapping – predictor’s space‑based labels → PredictionLabel enum
@@ -87,7 +88,11 @@ def classify_job(payload: dict) -> None:
         raise
 
     # ---- 2. Request‑scoped logging -----------------------------------------
-    log_ctx = log.bind(request_id=job.request_id, batch_id=job.batch_id, document_id=job.document_id)
+    log_ctx = log.bind(
+        request_id=job.request_id,
+        batch_id=job.batch_id,
+        document_id=job.document_id,
+    )
     log_ctx.info("worker.job.started")
 
     # ---- 3. Obtain injected dependencies -----------------------------------
@@ -164,7 +169,7 @@ def classify_job(payload: dict) -> None:
 # Dependency injection container (set once at startup)
 # ---------------------------------------------------------------------------
 class _Dependencies:
-    def __init__(self):
+    def __init__(self) -> None:
         self.predictor = None
         self.blob: IBlobStorage | None = None
         self.prediction_service: IPredictionService | None = None
@@ -174,7 +179,7 @@ _dependencies = _Dependencies()
 
 
 def inject_dependencies(
-    predictor,
+    predictor: Predictor,
     blob: IBlobStorage,
     prediction_service: IPredictionService,
     model_version: str,

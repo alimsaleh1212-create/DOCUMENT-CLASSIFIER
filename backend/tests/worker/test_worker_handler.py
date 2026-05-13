@@ -1,18 +1,20 @@
 """ tests/worker/test_worker_handler.py """
 
-import pytest
 from pathlib import Path
+
+import pytest
+
+from backend.app.classifier.predictor import get_predictor
+from backend.tests.fakes.blob import FakeBlob
+from backend.tests.fakes.prediction_service import FakePredictionService
 
 # Ensure repo root is in sys.path (pytest usually adds it)
 from backend.worker.handler import classify_job, inject_dependencies
-from backend.tests.fakes.blob import FakeBlob
-from backend.tests.fakes.prediction_service import FakePredictionService
-from backend.app.classifier.predictor import get_predictor
 
 SAMPLE_TIFF = Path(__file__).resolve().parent.parent / "fixtures" / "sample.tif"
 
 @pytest.fixture
-def fakes():
+def fakes() -> tuple[FakeBlob, FakePredictionService]:
     blob = FakeBlob()
     service = FakePredictionService()
     predictor = get_predictor()
@@ -21,7 +23,7 @@ def fakes():
     blob.put("documents/batch1/doc1.tif", SAMPLE_TIFF.read_bytes())
     return blob, service
 
-def test_classify_job_success(fakes):
+def test_classify_job_success(fakes: tuple[FakeBlob, FakePredictionService]) -> None:
     blob, service = fakes
     classify_job({
         "batch_id": "batch1",
@@ -36,13 +38,15 @@ def test_classify_job_success(fakes):
     assert record.batch_id == "batch1"
     assert record.document_id == "doc1"
 
-def test_classify_job_retries_on_blob_error(fakes, monkeypatch):
+def test_classify_job_retries_on_blob_error(
+    fakes: tuple[FakeBlob, FakePredictionService], monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Simulate blob failure -> retry, then success."""
     blob, service = fakes
     # Replace blob.get to fail once then succeed
     original_get = blob.get
     call_count = 0
-    def failing_get(key):
+    def failing_get(key: str) -> bytes:
         nonlocal call_count
         call_count += 1
         if call_count == 1:

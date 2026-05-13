@@ -7,13 +7,15 @@ runs prediction on each, asserts label identity and top-1 confidence
 within 1e-6. Marked as @pytest.mark.golden for CI separation.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from backend.app.classifier.predictor import Predictor, get_predictor
-
 
 # ---------------------------------------------------------------------------
 # Paths relative to this file
@@ -39,16 +41,16 @@ def predictor() -> Predictor:
 # ---------------------------------------------------------------------------
 # Helper: load expected data (called once at collection time)
 # ---------------------------------------------------------------------------
-def load_expected():
+def load_expected() -> list[dict[str, Any]]:
     """Parse golden_expected.json. Raise GoldenDataError if missing or invalid."""
     if not EXPECTED_FILE.exists():
         raise GoldenDataError(f"Golden expected file not found: {EXPECTED_FILE}")
 
-    with open(EXPECTED_FILE, "r") as fh:
+    with open(EXPECTED_FILE) as fh:
         try:
             data = json.load(fh)
         except json.JSONDecodeError as e:
-            raise GoldenDataError(f"Golden expected JSON is invalid: {e}")
+            raise GoldenDataError(f"Golden expected JSON is invalid: {e}") from e
 
     if not isinstance(data, list):
         raise GoldenDataError("Golden expected JSON must be a list of entries.")

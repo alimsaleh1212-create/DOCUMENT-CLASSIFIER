@@ -5,9 +5,9 @@ Boot script for the inference worker.
 Run from the repo root: python -m backend.worker
 """
 
+import json
 import os
 import sys
-import json
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -21,13 +21,13 @@ if str(_REPO_ROOT) not in sys.path:
 # ---------------------------------------------------------------------------
 # Now we can safely import from the backend package and from tests/
 # ---------------------------------------------------------------------------
-import structlog
-from rq import Worker, Connection
-import redis
+import redis  # noqa: E402
+import structlog  # noqa: E402
+from rq import Connection, Worker  # noqa: E402
 
-from backend.app.classifier.startup_checks import run_all_startup_checks
-from backend.app.classifier.predictor import get_predictor
-from backend.worker.handler import inject_dependencies
+from backend.app.classifier.predictor import get_predictor  # noqa: E402
+from backend.app.classifier.startup_checks import run_all_startup_checks  # noqa: E402
+from backend.worker.handler import inject_dependencies  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Structured logger
@@ -70,9 +70,9 @@ log.info("predictor.loaded")
 # Model version (from model card)
 # ---------------------------------------------------------------------------
 try:
-    with open(MODEL_CARD_PATH, "r") as f:
+    with open(MODEL_CARD_PATH) as f:
         model_card = json.load(f)
-except (json.JSONDecodeError, IOError) as e:
+except (OSError, json.JSONDecodeError) as e:
     log.error("model_card.read_error", error=str(e))
     sys.exit(1)
 

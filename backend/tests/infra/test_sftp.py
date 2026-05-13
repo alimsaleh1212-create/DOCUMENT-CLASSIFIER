@@ -6,11 +6,11 @@ from types import SimpleNamespace
 from app.infra.sftp import SFTPClient
 
 
-def file_entry(filename: str):
+def file_entry(filename: str) -> SimpleNamespace:
     return SimpleNamespace(filename=filename, st_mode=stat.S_IFREG)
 
 
-def dir_entry(filename: str):
+def dir_entry(filename: str) -> SimpleNamespace:
     return SimpleNamespace(filename=filename, st_mode=stat.S_IFDIR)
 
 
@@ -18,10 +18,10 @@ class FakeRemoteFile:
     def __init__(self, data: bytes) -> None:
         self.data = data
 
-    def __enter__(self) -> "FakeRemoteFile":
+    def __enter__(self) -> FakeRemoteFile:
         return self
 
-    def __exit__(self, exc_type, exc, traceback) -> None:
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
         return None
 
     def read(self) -> bytes:
@@ -34,7 +34,7 @@ class FakeSFTPConnection:
         self.created_dirs: list[str] = []
         self.renames: list[tuple[str, str]] = []
 
-    def listdir_attr(self, directory: str):
+    def listdir_attr(self, directory: str) -> list[SimpleNamespace]:
         if directory == "incoming":
             return [dir_entry("batch"), file_entry("root.tif")]
         if directory == "incoming/batch":

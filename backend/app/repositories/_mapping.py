@@ -9,9 +9,9 @@ from app.domain.contracts import (
     AuditLogEntry,
     BatchOut,
     BatchStatus,
+    DocumentOut,
     PredictionLabel,
     PredictionOut,
-    DocumentOut,
     Role,
     UserOut,
 )

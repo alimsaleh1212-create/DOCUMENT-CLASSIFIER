@@ -1,4 +1,5 @@
-from __future__ import annotations
+import datetime
+import io
 
 from app.infra.blob import DOCUMENTS_BUCKET, OVERLAYS_BUCKET, MinioBlob
 
@@ -32,13 +33,13 @@ class FakeMinioClient:
         self.buckets.add(bucket)
         self.created_buckets.append(bucket)
 
-    def put_object(self, bucket: str, key: str, payload, length: int) -> None:
+    def put_object(self, bucket: str, key: str, payload: io.BytesIO, length: int) -> None:
         self.objects[(bucket, key)] = payload.read(length)
 
     def get_object(self, bucket: str, key: str) -> FakeResponse:
         return FakeResponse(self.objects[(bucket, key)])
 
-    def presigned_get_object(self, bucket: str, key: str, expires) -> str:
+    def presigned_get_object(self, bucket: str, key: str, expires: datetime.timedelta) -> str:
         return f"https://minio.test/{bucket}/{key}?ttl={expires.total_seconds()}"
 
 
