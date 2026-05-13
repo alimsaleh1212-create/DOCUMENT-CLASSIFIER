@@ -1,8 +1,8 @@
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
+RUN corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
 COPY . .
 ARG VITE_API_BASE_URL=http://localhost:8000
