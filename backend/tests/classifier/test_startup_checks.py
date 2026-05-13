@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.app.classifier.startup_checks import (
+from app.classifier.startup_checks import (
     ClassifierStartupError,
     assert_sha256_matches,
     assert_threshold_met,

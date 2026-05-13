@@ -25,9 +25,9 @@ import redis  # noqa: E402
 import structlog  # noqa: E402
 from rq import Connection, Worker  # noqa: E402
 
-from backend.app.classifier.predictor import get_predictor  # noqa: E402
-from backend.app.classifier.startup_checks import run_all_startup_checks  # noqa: E402
-from backend.worker.handler import inject_dependencies  # noqa: E402
+from app.classifier.predictor import get_predictor  # noqa: E402
+from app.classifier.startup_checks import run_all_startup_checks  # noqa: E402
+from worker.handler import inject_dependencies  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Structured logger
