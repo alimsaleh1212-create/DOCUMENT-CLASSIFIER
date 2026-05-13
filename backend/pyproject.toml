@@ -73,7 +73,26 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["casbin", "casbin_sqlalchemy_adapter", "fastapi_cache", "fastapi_cache.*"]
+# audit_service.py is M3's deliverable — ignore until M3 merges it
+module = ["app.services.audit_service"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "casbin",
+    "casbin_sqlalchemy_adapter",
+    "fastapi_cache",
+    "fastapi_cache.*",
+    "hvac",
+    "hvac.*",
+    "paramiko",
+    "redis",
+    "redis.*",
+    "minio",
+    "minio.*",
+    "requests",
+    "requests.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
