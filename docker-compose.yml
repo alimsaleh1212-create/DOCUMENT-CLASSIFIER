@@ -179,7 +179,7 @@ services:
       context: frontend/
       dockerfile: Dockerfile
     ports:
-      - "${FRONTEND_DEV_PORT:-5173}:8080"
+      - "${FRONTEND_DEV_PORT:-5173}:80"
     depends_on:
       - api
     environment:
