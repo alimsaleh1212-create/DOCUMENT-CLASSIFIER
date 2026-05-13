@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
-      - run: uv sync
+      - run: uv sync --dev
         working-directory: backend
       - run: uv run ruff check .
         working-directory: backend
