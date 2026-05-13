@@ -120,7 +120,7 @@ def classify_job(payload: dict) -> None:
 
                 # b) Single inference – top‑5
                 log_ctx.info("worker.predicting")
-                top5_list = predictor.predict_topk(image_bytes, k=5)
+                top5_list, latency_ms = predictor.predict_topk(image_bytes, k=5)
 
                 # Extract top‑1
                 top1_label_str, top1_conf = top5_list[0]
@@ -151,6 +151,7 @@ def classify_job(payload: dict) -> None:
                     overlay_url=overlay_key,
                     model_version=model_version,
                     created_at=None,   # ❗ will raise ValidationError until contract is fixed
+                    latency_ms=latency_ms,
                 )
                 prediction_service.record_prediction(prediction_record)
                 log_ctx.info("worker.prediction_recorded")

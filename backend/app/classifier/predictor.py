@@ -7,6 +7,7 @@ and predict_topk(image_bytes, k) -> list[tuple[str, float]].
 CPU-only, p95 < 1.0s on modern laptop hardware.
 """
 import io
+import time
 from pathlib import Path
 
 import structlog
@@ -27,6 +28,7 @@ class PredictionOut(BaseModel):
     confidence: float = Field(
         ..., ge=0.0, le=1.0, description="Softmax confidence for the predicted label"
     )
+    latency_ms: float | None = Field(None, description="Inference time in milliseconds")
 
 # ------------------------------------------------------------------
 # Module-level constants (derived from training; keep in sync with
@@ -110,38 +112,46 @@ class Predictor:
         tensor = self._transform(img).unsqueeze(0)                # add batch dim
 
         # Inference (no gradients, more efficient than no_grad)
+        start_time = time.perf_counter()
         with torch.inference_mode():
             output = self._model(tensor)
             probs = torch.softmax(output, dim=1)
             conf, idx = torch.max(probs, dim=1)
+        latency_ms = (time.perf_counter() - start_time) * 1000
 
         label = CLASSES[idx.item()]
         confidence = round(conf.item(), 10)   # high precision for golden-set comparison
 
-        log.debug("predictor.inference", label=label, confidence=confidence)
-        return PredictionOut(label=label, confidence=confidence)
+        log.info("predictor.inference", label=label, confidence=confidence, latency_ms=latency_ms)
+        return PredictionOut(label=label, confidence=confidence, latency_ms=latency_ms)
 
     # ------------------------------------------------------------------
     # NEW METHOD – for top‑5 in the worker (does NOT affect golden tests)
     # ------------------------------------------------------------------
-    def predict_topk(self, image_bytes: bytes, k: int = 5) -> list[tuple[str, float]]:
+    def predict_topk(self, image_bytes: bytes, k: int = 5) -> tuple[list[tuple[str, float]], float]:
         """Return top‑k labels and confidences (used by the worker for top‑5)."""
         if self._model is None:
             raise RuntimeError("Model not loaded")
 
         img = Image.open(io.BytesIO(image_bytes)).convert("L")
         tensor = self._transform(img).unsqueeze(0)
+        
+        start_time = time.perf_counter()
         with torch.inference_mode():
             output = self._model(tensor)
             probs = torch.softmax(output, dim=1)
             topk_conf, topk_idx = torch.topk(probs, k, dim=1)
+        latency_ms = (time.perf_counter() - start_time) * 1000
 
         results = []
         for i in range(k):
             label = CLASSES[topk_idx[0, i].item()]
             conf = round(topk_conf[0, i].item(), 10)
             results.append((label, conf))
-        return results
+        
+        log = structlog.get_logger()
+        log.info("predictor.inference_topk", top1_label=results[0][0], top1_conf=results[0][1], latency_ms=latency_ms)
+        return results, latency_ms
 
 
 # ------------------------------------------------------------------
