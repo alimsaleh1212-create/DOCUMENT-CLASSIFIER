@@ -15,6 +15,11 @@ from app.domain.contracts import (
 
 class IUserRepository(ABC):
     @abstractmethod
+    async def create_user(
+        self, email: str, hashed_password: str, role: Role = Role.reviewer
+    ) -> UserOut: ...
+
+    @abstractmethod
     async def get(self, user_id: str) -> UserOut: ...
 
     @abstractmethod
@@ -66,3 +71,6 @@ class IAuditRepository(ABC):
         target: str,
         metadata: dict | None = None,
     ) -> AuditLogEntry: ...
+
+    @abstractmethod
+    async def list(self, page: int = 1, limit: int = 50) -> list[AuditLogEntry]: ...

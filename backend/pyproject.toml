@@ -40,6 +40,17 @@ dev = [
     "pre-commit>=3.7",
 ]
 
+# Route torch/torchvision to the CPU-only wheel index so no CUDA packages are pulled in.
+# The API and worker run on CPU inference (p95 < 1s is achievable on CPU for ConvNeXt Tiny).
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100

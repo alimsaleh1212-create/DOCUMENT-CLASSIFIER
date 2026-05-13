@@ -81,11 +81,13 @@ class DocumentOut(BaseModel):
 class PredictionOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
+    batch_id: str           # matches predictions.batch_id FK; needed for cache invalidation
     document_id: str
     label: PredictionLabel
     top1_confidence: float
     top5: list[tuple[PredictionLabel, float]]
     overlay_url: str | None = None
+    model_version: str      # matches predictions.model_version; required for model-swap tracking
     created_at: datetime
 
 
