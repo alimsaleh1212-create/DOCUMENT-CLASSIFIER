@@ -53,3 +53,13 @@ class UserRepository(IUserRepository):
             select(func.count()).select_from(models.User).where(models.User.role == Role.admin)
         )
         return int(result.scalar_one())
+
+    async def get_hashed_password(self, user_id: str) -> str:
+        """Retrieve the hashed password for a user by email query."""
+        result = await self._session.execute(
+            select(models.User.hashed_password).where(models.User.id == parse_uuid(user_id))
+        )
+        hashed = result.scalar_one_or_none()
+        if hashed is None:
+            raise ValueError(f"user not found: {user_id}")
+        return hashed  # type: ignore[no-any-return]
