@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from backend.app.classifier.predictor import Predictor, get_predictor
+from app.classifier.predictor import Predictor, get_predictor
 
 # ---------------------------------------------------------------------------
 # Paths relative to this file

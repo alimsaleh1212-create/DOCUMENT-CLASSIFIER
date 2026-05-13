@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from backend.app.classifier.predictor import get_predictor
-from backend.tests.fakes.blob import FakeBlob
-from backend.tests.fakes.prediction_service import FakePredictionService
+from app.classifier.predictor import get_predictor
+from tests.fakes.blob import FakeBlob
+from tests.fakes.prediction_service import FakePredictionService
 
 # Ensure repo root is in sys.path (pytest usually adds it)
-from backend.worker.handler import classify_job, inject_dependencies
+from worker.handler import classify_job, inject_dependencies
 
 SAMPLE_TIFF = Path(__file__).resolve().parent.parent / "fixtures" / "sample.tif"
 
