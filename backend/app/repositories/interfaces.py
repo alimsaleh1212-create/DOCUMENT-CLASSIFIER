@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.domain.contracts import (
     AuditLogEntry,
-    BatchStatus,
     BatchOut,
+    BatchStatus,
     PredictionLabel,
     PredictionOut,
     Role,
@@ -14,6 +15,11 @@ from app.domain.contracts import (
 
 
 class IUserRepository(ABC):
+    @abstractmethod
+    async def create_user(
+        self, email: str, hashed_password: str, role: Role = Role.reviewer
+    ) -> UserOut: ...
+
     @abstractmethod
     async def get(self, user_id: str) -> UserOut: ...
 
@@ -64,5 +70,8 @@ class IAuditRepository(ABC):
         actor_id: str,
         action: str,
         target: str,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditLogEntry: ...
+
+    @abstractmethod
+    async def list(self, page: int = 1, limit: int = 50) -> list[AuditLogEntry]: ...

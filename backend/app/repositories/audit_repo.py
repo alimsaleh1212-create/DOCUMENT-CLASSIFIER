@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import models
@@ -17,7 +19,7 @@ class AuditRepository(IAuditRepository):
         actor_id: str,
         action: str,
         target: str,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditLogEntry:
         audit_log = models.AuditLog(
             actor_id=parse_uuid(actor_id),
