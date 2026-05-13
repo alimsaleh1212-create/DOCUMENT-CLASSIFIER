@@ -6,6 +6,7 @@ from app.domain.contracts import (
     AuditLogEntry,
     BatchStatus,
     BatchOut,
+    DocumentOut,
     PredictionLabel,
     PredictionOut,
     Role,
@@ -39,6 +40,16 @@ class IBatchRepository(ABC):
 
     @abstractmethod
     async def update_status(self, batch_id: str, status: BatchStatus) -> BatchOut: ...
+
+
+class IDocumentRepository(ABC):
+    @abstractmethod
+    async def ensure_for_ingest(
+        self,
+        batch_id: str,
+        document_id: str,
+        blob_key: str,
+    ) -> DocumentOut: ...
 
 
 class IPredictionRepository(ABC):
