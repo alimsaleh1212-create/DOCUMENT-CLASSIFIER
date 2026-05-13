@@ -41,7 +41,15 @@ async def register(
     admin_count = await user_repo.count_admins()
     role = Role.admin if admin_count == 0 else Role.reviewer
     user = await user_repo.create_user(body.email, hashed, role=role)
-    await session.commit()
+    # Explicitly commit the session within a transaction context
+    try:
+        await session.commit()
+    except Exception as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create user: {str(exc)}",
+        ) from exc
     return user
 
 
