@@ -2,6 +2,7 @@ import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { isLoggedIn, getRole } from "./hooks/useAuth";
 
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 import MePage from "./pages/MePage";
 import BatchesListPage from "./pages/BatchesListPage";
 import BatchDetailPage from "./pages/BatchDetailPage";
@@ -39,6 +40,7 @@ export default function App() {
     <Routes>
       {/* Public */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
 
       {/* Authenticated */}
       <Route element={<ProtectedRoute />}>

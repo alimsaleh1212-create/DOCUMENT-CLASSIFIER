@@ -1,33 +1,47 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
+import { Link, useNavigate } from "react-router-dom";
+import client from "../api/client";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { login } = useAuth();
-  const justRegistered = (location.state as { registered?: boolean } | null)?.registered === true;
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (password !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await login(email, password);
-      navigate("/batches", { replace: true });
+      await client.post("/auth/register", { email, password });
+      navigate("/login", {
+        state: { registered: true },
+        replace: true,
+      });
     } catch (err: unknown) {
       if (
         err &&
         typeof err === "object" &&
-        "response" in err &&
-        (err as { response?: { status?: number } }).response?.status === 401
+        "response" in err
       ) {
-        setError("Invalid credentials. Check your email and password.");
+        const resp = (err as { response?: { status?: number; data?: { detail?: string } } }).response;
+        if (resp?.status === 409) {
+          setError("An account with that email already exists.");
+        } else {
+          setError(resp?.data?.detail ?? "Registration failed. Please try again.");
+        }
       } else {
         setError("Unable to connect. Make sure the server is running.");
       }
@@ -59,30 +73,10 @@ export default function LoginPage() {
           pointerEvents: "none",
         }}
       />
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          top: "15%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "1px",
-          height: "200px",
-          background:
-            "linear-gradient(to bottom, transparent, var(--accent), transparent)",
-          opacity: 0.25,
-          pointerEvents: "none",
-        }}
-      />
 
-      {/* Login card */}
       <div
         className="animate-fade-up"
-        style={{
-          width: "100%",
-          maxWidth: "380px",
-          position: "relative",
-        }}
+        style={{ width: "100%", maxWidth: "380px", position: "relative" }}
       >
         {/* Logo mark */}
         <div
@@ -124,19 +118,29 @@ export default function LoginPage() {
                 marginBottom: "0.25rem",
               }}
             >
-              DocClass
+              Create account
             </h1>
             <p
               style={{
                 color: "var(--text-muted)",
                 fontSize: "12px",
                 fontFamily: "var(--font-mono)",
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
+                letterSpacing: "0.04em",
                 margin: 0,
               }}
             >
-              Document Intelligence Platform
+              New accounts start as{" "}
+              <span
+                style={{
+                  color: "var(--role-reviewer)",
+                  background: "rgba(56,189,248,0.1)",
+                  padding: "0 5px",
+                  borderRadius: "3px",
+                  fontWeight: "500",
+                }}
+              >
+                reviewer
+              </span>
             </p>
           </div>
         </div>
@@ -151,25 +155,10 @@ export default function LoginPage() {
             boxShadow: "0 24px 64px rgba(0,0,0,0.4)",
           }}
         >
-          {justRegistered && (
-            <div
-              style={{
-                padding: "0.625rem 0.875rem",
-                background: "rgba(16,185,129,0.08)",
-                border: "1px solid rgba(16,185,129,0.25)",
-                borderRadius: "var(--radius)",
-                color: "var(--success)",
-                fontSize: "12px",
-                marginBottom: "1.25rem",
-              }}
-            >
-              ✓ Account created. Sign in to continue.
-            </div>
-          )}
           <form onSubmit={(e) => void handleSubmit(e)}>
             <div style={{ marginBottom: "1rem" }}>
               <label
-                htmlFor="email"
+                htmlFor="reg-email"
                 style={{
                   display: "block",
                   fontSize: "12px",
@@ -184,7 +173,7 @@ export default function LoginPage() {
                 Email
               </label>
               <input
-                id="email"
+                id="reg-email"
                 type="email"
                 autoComplete="email"
                 required
@@ -195,9 +184,9 @@ export default function LoginPage() {
               />
             </div>
 
-            <div style={{ marginBottom: "1.25rem" }}>
+            <div style={{ marginBottom: "1rem" }}>
               <label
-                htmlFor="password"
+                htmlFor="reg-password"
                 style={{
                   display: "block",
                   fontSize: "12px",
@@ -212,15 +201,62 @@ export default function LoginPage() {
                 Password
               </label>
               <input
-                id="password"
+                id="reg-password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Min. 8 characters"
                 className="input"
               />
+            </div>
+
+            <div style={{ marginBottom: "1.25rem" }}>
+              <label
+                htmlFor="reg-confirm"
+                style={{
+                  display: "block",
+                  fontSize: "12px",
+                  fontWeight: "500",
+                  color: "var(--text-muted)",
+                  marginBottom: "0.375rem",
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Confirm password
+              </label>
+              <input
+                id="reg-confirm"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="Repeat password"
+                className="input"
+                style={{
+                  borderColor:
+                    confirm && confirm !== password
+                      ? "var(--danger)"
+                      : undefined,
+                }}
+              />
+              {confirm && confirm !== password && (
+                <p
+                  style={{
+                    fontSize: "11px",
+                    color: "var(--danger)",
+                    margin: "0.3rem 0 0",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  Passwords don't match
+                </p>
+              )}
             </div>
 
             {error && (
@@ -244,10 +280,14 @@ export default function LoginPage() {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={loading}
+              disabled={loading || (!!confirm && confirm !== password)}
               style={{ width: "100%", justifyContent: "center", height: "38px" }}
             >
-              {loading ? <span className="spinner" style={{ width: "16px", height: "16px" }} /> : "Sign in"}
+              {loading ? (
+                <span className="spinner" style={{ width: "16px", height: "16px" }} />
+              ) : (
+                "Create account"
+              )}
             </button>
           </form>
 
@@ -260,25 +300,55 @@ export default function LoginPage() {
             }}
           >
             <p style={{ fontSize: "12px", color: "var(--text-dim)", margin: 0 }}>
-              No account?{" "}
+              Already have an account?{" "}
               <Link
-                to="/register"
+                to="/login"
                 style={{ color: "var(--accent)", textDecoration: "none" }}
               >
-                Sign up
+                Sign in
               </Link>
             </p>
           </div>
         </div>
 
-        {/* Version footer */}
+        {/* Role info */}
+        <div
+          style={{
+            marginTop: "1rem",
+            padding: "0.75rem 1rem",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius)",
+            fontSize: "11px",
+            color: "var(--text-dim)",
+            fontFamily: "var(--font-mono)",
+            lineHeight: "1.6",
+          }}
+        >
+          <div style={{ color: "var(--text-muted)", marginBottom: "0.4rem", fontWeight: "500" }}>
+            Role privileges
+          </div>
+          <div>
+            <span style={{ color: "var(--role-admin)" }}>admin</span>
+            {"  →  "}manage users, view all, relabel, audit
+          </div>
+          <div>
+            <span style={{ color: "var(--role-reviewer)" }}>reviewer</span>
+            {" →  "}view batches + relabel predictions
+          </div>
+          <div>
+            <span style={{ color: "var(--role-auditor)" }}>auditor</span>
+            {"  →  "}view batches + audit log (read-only)
+          </div>
+        </div>
+
         <p
           style={{
             textAlign: "center",
             fontSize: "11px",
             color: "var(--text-dim)",
             fontFamily: "var(--font-mono)",
-            marginTop: "1.25rem",
+            marginTop: "1rem",
           }}
         >
           RVL-CDIP · 16-class classifier
