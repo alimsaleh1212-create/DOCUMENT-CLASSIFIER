@@ -7,7 +7,7 @@ from hvac.exceptions import VaultError
 from requests.exceptions import RequestException
 
 
-class VaultUnreachable(RuntimeError):
+class VaultUnreachable(RuntimeError):  # noqa: N818
     """Raised when Vault cannot be reached or returns an unusable response."""
 
 

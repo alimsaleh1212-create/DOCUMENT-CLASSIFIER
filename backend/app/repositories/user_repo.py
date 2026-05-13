@@ -18,9 +18,7 @@ class UserRepository(IUserRepository):
         return user_to_domain(require_row(user, f"user not found: {user_id}"))
 
     async def get_by_email(self, email: str) -> UserOut | None:
-        result = await self._session.execute(
-            select(models.User).where(models.User.email == email)
-        )
+        result = await self._session.execute(select(models.User).where(models.User.email == email))
         user = result.scalar_one_or_none()
         return None if user is None else user_to_domain(user)
 

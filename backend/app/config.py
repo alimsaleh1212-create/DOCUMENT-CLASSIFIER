@@ -23,3 +23,4 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     model_threshold_top1: float = 0.85
     cache_default_ttl: int = 60
+    use_fakes: bool = False  # set via env: USE_FAKES=1 (alias: WORKER_USE_FAKES)

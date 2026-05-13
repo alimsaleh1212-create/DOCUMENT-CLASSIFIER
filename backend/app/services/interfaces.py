@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.domain.contracts import (
     AuditLogEntry,
     BatchOut,
     PredictionLabel,
     PredictionOut,
+    Role,
     UserOut,
 )
 
@@ -19,7 +21,7 @@ class IUserService(ABC):
     async def list_users(self) -> list[UserOut]: ...
 
     @abstractmethod
-    async def toggle_role(self, actor_id: str, target_uid: str, new_role: str) -> UserOut: ...
+    async def toggle_role(self, actor: UserOut, target_uid: str, new_role: Role) -> UserOut: ...
 
 
 class IBatchService(ABC):
@@ -44,7 +46,7 @@ class IPredictionService(ABC):
 
     @abstractmethod
     async def relabel(
-        self, actor_id: str, prediction_id: str, new_label: PredictionLabel
+        self, actor: UserOut, prediction_id: str, new_label: PredictionLabel
     ) -> PredictionOut: ...
 
 
@@ -55,5 +57,5 @@ class IAuditService(ABC):
         actor_id: str,
         action: str,
         target: str,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditLogEntry: ...

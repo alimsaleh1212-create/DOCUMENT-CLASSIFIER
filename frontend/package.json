@@ -8,37 +8,39 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "test:run": "vitest run",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write src/",
     "format:check": "prettier --check src/",
     "gen:api": "openapi-typescript-codegen --input http://localhost:8000/openapi.json --output ./src/api --client axios"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5",
+    "axios": "^1.7",
     "react": "^18.3",
     "react-dom": "^18.3",
-    "react-router-dom": "^6.23",
-    "@tanstack/react-query": "^5",
-    "axios": "^1.7"
+    "react-router-dom": "^6.23"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6",
+    "@testing-library/react": "^15",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18.3",
     "@types/react-dom": "^18.3",
+    "@typescript-eslint/eslint-plugin": "^7",
+    "@typescript-eslint/parser": "^7",
     "@vitejs/plugin-react": "^4.3",
     "autoprefixer": "^10.4",
     "eslint": "^8",
-    "@typescript-eslint/eslint-plugin": "^7",
-    "@typescript-eslint/parser": "^7",
     "eslint-plugin-react-hooks": "^4.6",
     "eslint-plugin-react-refresh": "^0.4",
+    "jsdom": "^24",
+    "openapi-typescript-codegen": "^0.27",
     "postcss": "^8.4",
     "prettier": "^3.3",
     "tailwindcss": "^3.4",
     "typescript": "^5.4",
     "vite": "^5.3",
-    "vitest": "^1.6",
-    "@testing-library/react": "^15",
-    "@testing-library/jest-dom": "^6",
-    "jsdom": "^24",
-    "openapi-typescript-codegen": "^0.27"
+    "vitest": "^1.6"
   }
 }

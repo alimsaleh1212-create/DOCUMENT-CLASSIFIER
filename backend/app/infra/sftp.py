@@ -74,7 +74,7 @@ class SFTPClient:
         ssh, sftp = self._connect()
         try:
             with sftp.open(remote_path, "rb") as remote_file:
-                return remote_file.read()
+                return remote_file.read()  # type: ignore[no-any-return]
         finally:
             sftp.close()
             ssh.close()

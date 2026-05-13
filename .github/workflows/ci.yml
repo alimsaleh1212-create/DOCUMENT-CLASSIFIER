@@ -48,10 +48,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          hits=$(grep -ri 'password' backend/app/ --exclude-dir=__pycache__ || true)
-          vault_hits=$(grep -ri 'password' backend/app/infra/vault.py || true)
-          if [ -n "$hits" ] && [ "$hits" != "$vault_hits" ]; then
-            echo "::error::Hardcoded password found outside vault.py"
+          # Detect actual hardcoded credential assignments (password = "literal")
+          # Excludes type annotations (password: str), parameter names,
+          # and assignments from variables (self._password = password).
+          hits=$(grep -rEn "password\s*=\s*['\"]" backend/app/ --exclude-dir=__pycache__ \
+            | grep -v vault.py || true)
+          if [ -n "$hits" ]; then
+            echo "::error::Hardcoded password literal found outside vault.py"
             echo "$hits"
             exit 1
           fi
@@ -63,7 +66,9 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           echo "Checking no SQLAlchemy imports in api layer..."
-          grep -rn 'from sqlalchemy\|import sqlalchemy' backend/app/api/ && exit 1 || true
+          # deps.py is the session-injection adapter and is allowed to import AsyncSession
+          grep -rn 'from sqlalchemy\|import sqlalchemy' backend/app/api/ \
+            --exclude='deps.py' && exit 1 || true
           grep -rn 'from app.db.models\|import app.db.models' backend/app/api/ && exit 1 || true
           echo "Checking no HTTPException imports in repositories layer..."
           grep -rn 'from fastapi\|import fastapi' backend/app/repositories/ && exit 1 || true

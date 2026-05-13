@@ -55,9 +55,7 @@ class PredictionRepository(IPredictionRepository):
 
     async def list_recent(self, limit: int = 50) -> list[PredictionOut]:
         result = await self._session.execute(
-            select(models.Prediction)
-            .order_by(models.Prediction.created_at.desc())
-            .limit(limit)
+            select(models.Prediction).order_by(models.Prediction.created_at.desc()).limit(limit)
         )
         return [prediction_to_domain(prediction) for prediction in result.scalars()]
 
@@ -67,9 +65,7 @@ class PredictionRepository(IPredictionRepository):
             require_row(prediction, f"prediction not found: {prediction_id}")
         )
 
-    async def update_label(
-        self, prediction_id: str, new_label: PredictionLabel
-    ) -> PredictionOut:
+    async def update_label(self, prediction_id: str, new_label: PredictionLabel) -> PredictionOut:
         prediction = await self._session.get(models.Prediction, parse_uuid(prediction_id))
         prediction = require_row(prediction, f"prediction not found: {prediction_id}")
         prediction.label = new_label.value
