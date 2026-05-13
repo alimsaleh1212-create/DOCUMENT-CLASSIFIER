@@ -89,7 +89,7 @@ class PredictionOut(BaseModel):
     top5: list[tuple[PredictionLabel, float]]
     overlay_url: str | None = None
     model_version: str  # matches predictions.model_version; required for model-swap tracking
-    created_at: datetime
+    created_at: datetime | None = None
 
 
 class AuditLogEntry(BaseModel):

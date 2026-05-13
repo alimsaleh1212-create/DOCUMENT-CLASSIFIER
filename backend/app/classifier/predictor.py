@@ -2,12 +2,13 @@
 backend/app/classifier/predictor.py
 
 Singleton predictor for ConvNeXt document layout classification.
-Loads classifier.pt once, exposes predict(image_bytes) -> PredictionOut.
+Loads classifier.pt once, exposes predict(image_bytes) -> PredictionOut
+and predict_topk(image_bytes, k) -> list[tuple[str, float]].
 CPU-only, p95 < 1.0s on modern laptop hardware.
 """
 import io
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Tuple
 
 import structlog
 import torch
@@ -117,6 +118,28 @@ class Predictor:
 
         log.debug("predictor.inference", label=label, confidence=confidence)
         return PredictionOut(label=label, confidence=confidence)
+
+    # ------------------------------------------------------------------
+    # NEW METHOD – for top‑5 in the worker (does NOT affect golden tests)
+    # ------------------------------------------------------------------
+    def predict_topk(self, image_bytes: bytes, k: int = 5) -> List[Tuple[str, float]]:
+        """Return top‑k labels and confidences (used by the worker for top‑5)."""
+        if self._model is None:
+            raise RuntimeError("Model not loaded")
+
+        img = Image.open(io.BytesIO(image_bytes)).convert("L")
+        tensor = self._transform(img).unsqueeze(0)
+        with torch.inference_mode():
+            output = self._model(tensor)
+            probs = torch.softmax(output, dim=1)
+            topk_conf, topk_idx = torch.topk(probs, k, dim=1)
+
+        results = []
+        for i in range(k):
+            label = CLASSES[topk_idx[0, i].item()]
+            conf = round(topk_conf[0, i].item(), 10)
+            results.append((label, conf))
+        return results
 
 
 # ------------------------------------------------------------------

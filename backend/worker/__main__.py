@@ -2,9 +2,7 @@
 worker/__main__.py
 
 Boot script for the inference worker.
-Loads dependencies, runs startup checks, injects singletons
-into the handler, and starts an RQ worker listening on the
-'classify' queue.
+Run from the repo root: python -m backend.worker
 """
 
 import os
@@ -12,12 +10,27 @@ import sys
 import json
 from pathlib import Path
 
+# ---------------------------------------------------------------------------
+# Ensure the repo root is on sys.path (so that 'backend' and 'tests' are
+# discoverable packages).
+# ---------------------------------------------------------------------------
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent   # DOCUMENT-CLASSIFIER
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+# ---------------------------------------------------------------------------
+# Now we can safely import from the backend package and from tests/
+# ---------------------------------------------------------------------------
 import structlog
 from rq import Worker, Connection
 import redis
 
+from backend.app.classifier.startup_checks import run_all_startup_checks
+from backend.app.classifier.predictor import get_predictor
+from backend.worker.handler import inject_dependencies
+
 # ---------------------------------------------------------------------------
-# 1. Structured logger
+# Structured logger
 # ---------------------------------------------------------------------------
 structlog.configure(
     processors=[
@@ -32,33 +45,29 @@ structlog.configure(
 log = structlog.get_logger()
 
 # ---------------------------------------------------------------------------
-# 2. Paths
+# Paths – all relative to repo root (no double‑nesting)
 # ---------------------------------------------------------------------------
-BASE_DIR = Path(__file__).resolve().parent.parent          # repo root
-CLASSIFIER_DIR = BASE_DIR / "backend" / "app" / "classifier"
+CLASSIFIER_DIR = _REPO_ROOT / "backend" / "app" / "classifier"
 WEIGHTS_PATH = CLASSIFIER_DIR / "models" / "classifier.pt"
 MODEL_CARD_PATH = CLASSIFIER_DIR / "models" / "model_card.json"
 
 # ---------------------------------------------------------------------------
-# 3. Startup checks – must pass before anything else
+# Startup checks
 # ---------------------------------------------------------------------------
 try:
-    from backend.app.classifier.startup_checks import run_all_startup_checks
     run_all_startup_checks(weights_path=WEIGHTS_PATH, model_card_path=MODEL_CARD_PATH)
-    # run_all_startup_checks already emits a success log; don’t duplicate.
 except Exception as e:
     log.error("startup_checks.failed", error=str(e))
     sys.exit(1)
 
 # ---------------------------------------------------------------------------
-# 4. Predictor singleton
+# Predictor singleton
 # ---------------------------------------------------------------------------
-from backend.app.classifier.predictor import get_predictor
 predictor = get_predictor(WEIGHTS_PATH)
 log.info("predictor.loaded")
 
 # ---------------------------------------------------------------------------
-# 5. Model version (from model card) – re‑read because startup checks don’t expose it
+# Model version (from model card)
 # ---------------------------------------------------------------------------
 try:
     with open(MODEL_CARD_PATH, "r") as f:
@@ -67,7 +76,6 @@ except (json.JSONDecodeError, IOError) as e:
     log.error("model_card.read_error", error=str(e))
     sys.exit(1)
 
-# Construct a concise, unique version string for audit trails
 model_version = (
     f"{model_card['backbone']}_{model_card['weights_enum']}_"
     f"{model_card['freeze_policy']}_{model_card['sha256'][:8]}_"
@@ -76,7 +84,7 @@ model_version = (
 log.info("model_version", version=model_version)
 
 # ---------------------------------------------------------------------------
-# 6. Blob & Prediction Service – real vs fake, gated by env var
+# Blob & Prediction Service – real vs fake
 # ---------------------------------------------------------------------------
 use_fakes = os.getenv("WORKER_USE_FAKES") == "1"
 
@@ -85,9 +93,9 @@ if use_fakes:
     blob = FakeBlob()
     log.info("blob.using_fake")
 else:
-    # Will be implemented by M3
+    # Will be replaced by real MinIO adapter (M3)
     raise NotImplementedError(
-        "Real blob adapter not available yet. Set WORKER_USE_FAKES=1 to test with fake."
+        "Real blob adapter not available yet. Set WORKER_USE_FAKES=1 to test."
     )
 
 if use_fakes:
@@ -96,14 +104,12 @@ if use_fakes:
     log.info("prediction_service.using_fake")
 else:
     raise NotImplementedError(
-        "Real prediction service not available yet. Set WORKER_USE_FAKES=1 to test with fake."
+        "Real prediction service not available yet. Set WORKER_USE_FAKES=1 to test."
     )
 
 # ---------------------------------------------------------------------------
-# 7. Inject dependencies into the handler
+# Inject dependencies
 # ---------------------------------------------------------------------------
-from worker.handler import inject_dependencies
-
 try:
     inject_dependencies(predictor, blob, prediction_service, model_version)
     log.info("dependencies.injected")
@@ -112,7 +118,7 @@ except Exception as e:
     sys.exit(1)
 
 # ---------------------------------------------------------------------------
-# 8. Start the RQ worker
+# Start the RQ worker
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
