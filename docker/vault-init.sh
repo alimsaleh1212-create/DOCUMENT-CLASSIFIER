@@ -14,8 +14,8 @@ echo "Seeding Vault at $VAULT_ADDR ..."
 # Enable KV v2 secrets engine (dev mode has it enabled by default, but be explicit)
 vault secrets enable -path=secret kv-v2 2>/dev/null || true
 
-# JWT signing key
-vault kv put secret/jwt/signing_key key="$(openssl rand -hex 32)"
+# JWT signing key. This is local dev data; production rotates/provisions outside compose.
+vault kv put secret/jwt/signing_key key="${JWT_SIGNING_KEY:-dev-jwt-signing-key}"
 
 # Postgres DSN
 vault kv put secret/postgres/dsn dsn="postgresql+asyncpg://docclass:docclass@db:5432/docclass"

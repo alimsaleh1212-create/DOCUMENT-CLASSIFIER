@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import models
@@ -31,3 +32,13 @@ class AuditRepository(IAuditRepository):
         await self._session.flush()
         await self._session.refresh(audit_log)
         return audit_log_to_domain(audit_log)
+
+    async def list(self, page: int = 1, limit: int = 50) -> list[AuditLogEntry]:
+        offset = max(page - 1, 0) * limit
+        result = await self._session.execute(
+            select(models.AuditLog)
+            .order_by(models.AuditLog.timestamp.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return [audit_log_to_domain(audit_log) for audit_log in result.scalars()]

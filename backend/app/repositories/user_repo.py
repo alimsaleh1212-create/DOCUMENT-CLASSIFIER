@@ -13,6 +13,20 @@ class UserRepository(IUserRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def create_user(
+        self, email: str, hashed_password: str, role: Role = Role.reviewer
+    ) -> UserOut:
+        user = models.User(
+            email=email,
+            hashed_password=hashed_password,
+            role=role.value,
+            is_active=True,
+        )
+        self._session.add(user)
+        await self._session.flush()
+        await self._session.refresh(user)
+        return user_to_domain(user)
+
     async def get(self, user_id: str) -> UserOut:
         user = await self._session.get(models.User, parse_uuid(user_id))
         return user_to_domain(require_row(user, f"user not found: {user_id}"))
