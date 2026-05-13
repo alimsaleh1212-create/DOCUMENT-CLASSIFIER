@@ -37,6 +37,9 @@ def test_classify_job_success(fakes: tuple[FakeBlob, FakePredictionService]) -> 
     assert record.model_version == "test_model_version"
     assert record.batch_id == "batch1"
     assert record.document_id == "doc1"
+    assert record.latency_ms is not None
+    assert record.latency_ms > 0
+    print(f"\n[DEMO] Prediction Latency: {record.latency_ms:.2f}ms")
 
 def test_classify_job_retries_on_blob_error(
     fakes: tuple[FakeBlob, FakePredictionService], monkeypatch: pytest.MonkeyPatch
