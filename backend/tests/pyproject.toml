@@ -21,3 +21,7 @@ dependencies = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 pythonpath = [".."]
+markers = [
+    "golden: golden-set replay tests",
+    "smoke: full-stack smoke tests",
+]

@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -13,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
-      - run: uv sync --dev
+      - run: uv sync --extra dev
         working-directory: backend
       - run: uv run ruff check .
         working-directory: backend
@@ -26,9 +27,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
-      - run: uv sync --dev
+      - run: uv sync --extra dev
         working-directory: backend
-      - run: uv run mypy --strict app/
+      - run: PYTHONPATH=.:.. uv run --extra dev mypy --strict app/
         working-directory: backend
 
   backend-test:
@@ -37,10 +38,55 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
-      - run: uv sync --dev
+      - run: uv sync --extra dev
         working-directory: backend
-      - run: uv run pytest -q
+      - run: PYTHONPATH=.:.. uv run --extra dev pytest -q
         working-directory: backend
+
+  backend-golden:
+    name: Backend – Golden Set
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync --extra dev
+        working-directory: backend
+      - run: PYTHONPATH=.:.. uv run --extra dev pytest -q app/classifier/eval/golden.py -m golden
+        working-directory: backend
+
+  docker-build:
+    name: Docker – Build Service Images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build api worker sftp-ingest migrate
+
+  full-stack-smoke:
+    name: Smoke – Full Compose Pipeline
+    runs-on: ubuntu-latest
+    needs:
+      - backend-test
+      - backend-golden
+      - docker-build
+    if: ${{ vars.RUN_FULL_STACK_SMOKE == '1' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: Install SFTP client helpers
+        run: sudo apt-get update && sudo apt-get install -y openssh-client sshpass
+      - run: uv sync --extra dev
+        working-directory: backend
+      - name: Start full stack
+        run: docker compose up -d --build db redis minio sftp vault vault-init migrate api worker sftp-ingest
+      - name: Run smoke test
+        run: PYTHONPATH=.:.. uv run --extra dev pytest -q tests/smoke -m smoke
+        working-directory: backend
+      - name: Show compose logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+      - name: Stop full stack
+        if: always()
+        run: docker compose down -v
 
   backend-secrets-check:
     name: Backend – No Hardcoded Secrets

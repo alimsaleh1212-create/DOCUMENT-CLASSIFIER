@@ -90,6 +90,7 @@ class PredictionOut(BaseModel):
     overlay_url: str | None = None
     model_version: str  # matches predictions.model_version; required for model-swap tracking
     created_at: datetime | None = None
+    latency_ms: float | None = None
 
 
 class AuditLogEntry(BaseModel):
