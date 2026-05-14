@@ -5,6 +5,8 @@ RQ job handler for document classification.
 Uses the official domain contracts from backend.app.domain.contracts.
 """
 
+import uuid
+from datetime import UTC, datetime
 from typing import Protocol
 
 import structlog
@@ -142,7 +144,7 @@ def classify_job(payload: dict) -> None:
                 #    As a temporary measure we leave them as placeholders – the contract
                 #    in domain/contracts.py should be updated to allow None for these.
                 prediction_record = PredictionOut(
-                    id="",
+                    id=str(uuid.uuid4()),
                     batch_id=job.batch_id,
                     document_id=job.document_id,
                     label=pred_label,
@@ -150,7 +152,7 @@ def classify_job(payload: dict) -> None:
                     top5=top5_converted,
                     overlay_url=overlay_key,
                     model_version=model_version,
-                    created_at=None,   # ❗ will raise ValidationError until contract is fixed
+                    created_at=datetime.now(UTC),
                     latency_ms=latency_ms,
                 )
                 prediction_service.record_prediction(prediction_record)

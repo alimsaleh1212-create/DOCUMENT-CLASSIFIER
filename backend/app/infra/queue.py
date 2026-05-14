@@ -6,7 +6,7 @@ from rq import Queue
 from app.domain.contracts import ClassifyJob
 
 DEFAULT_QUEUE_NAME = "classify"
-DEFAULT_JOB_FUNC = "worker.__main__.classify_job"
+DEFAULT_JOB_FUNC = "worker.handler.classify_job"
 
 
 class RQQueue:

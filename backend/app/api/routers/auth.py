@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.auth import create_access_token, hash_password, verify_password
 from app.api.deps import get_user_repo
-from app.domain.contracts import UserCreate, UserOut
+from app.domain.contracts import Role, UserCreate, UserOut
 from app.repositories.interfaces import IUserRepository
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -36,7 +36,9 @@ async def register(
             detail="Email already registered",
         )
     hashed = hash_password(body.password)
-    return await user_repo.create_user(body.email, hashed)
+    admin_count = await user_repo.count_admins()
+    role = Role.admin if admin_count == 0 else Role.reviewer
+    return await user_repo.create_user(body.email, hashed, role=role)
 
 
 @router.post("/jwt/login", response_model=_TokenOut)
@@ -53,7 +55,7 @@ async def login(
             detail="Invalid credentials",
         )
 
-    stored_hash = _get_hashed_password(user_repo, user.id)
+    stored_hash = await _get_hashed_password(user_repo, user.id)
     if not verify_password(body.password, stored_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -65,7 +67,7 @@ async def login(
     return _TokenOut(**user.model_dump(), access_token=token)
 
 
-def _get_hashed_password(repo: IUserRepository, user_id: str) -> str:
+async def _get_hashed_password(repo: IUserRepository, user_id: str) -> str:
     """
     Retrieve the stored hashed password for a user.
 
@@ -73,7 +75,11 @@ def _get_hashed_password(repo: IUserRepository, user_id: str) -> str:
     FakeUserRepo exposes get_hashed_password() for the fake mode.
     """
     if hasattr(repo, "get_hashed_password"):
-        return repo.get_hashed_password(user_id)  # type: ignore[no-any-return]
+        result = repo.get_hashed_password(user_id)  # type: ignore[no-any-return]
+        # Handle both sync and async implementations
+        if hasattr(result, "__await__"):
+            return await result
+        return result
     # Production repositories must expose this; if they don't, raise early.
     raise NotImplementedError(
         "IUserRepository implementation must expose get_hashed_password(user_id)"
