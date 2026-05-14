@@ -1,38 +1,44 @@
-# Licenses — Document Classifier Service
+# Licensing & Compliance
 
-## RVL-CDIP Dataset
+Summary of dataset and dependency licenses for the Document Classifier service.
 
-The RVL-CDIP (Ryerson Vision Lab Complex Document Information Processing) dataset is used for **academic/research purposes only**. The dataset is distributed under its original license terms. Commercial use requires separate permission from the dataset authors.
+## 📊 Dataset Licensing
+### RVL-CDIP Dataset
+- **License**: Academic / Research-Only
+- **Usage**: Educational purposes for the Document Classification project.
+- **Reference**: [CMU RVL-CDIP Repository](https://www.cs.cmu.edu/~aharley/rvl-cdip/)
 
-See: https://www.cs.cmu.edu/~aharley/rvl-cdip/
+---
 
-## Dependencies
+## 💻 Core Stack Dependencies
 
-| Package | License |
-|---|---|
-| Python 3.11 | PSF License |
-| PyTorch | BSD-3-Clause |
-| torchvision | BSD-3-Clause |
-| FastAPI | MIT |
-| fastapi-users | MIT |
-| Pydantic | MIT |
-| SQLAlchemy | MIT |
-| Alembic | MIT |
-| asyncpg | MIT / Apache-2.0 |
-| Casbin | Apache-2.0 |
-| casbin-sqlalchemy-adapter | Apache-2.0 |
-| fastapi-cache2 | MIT |
-| RQ | BSD-2-Clause |
-| hvac | MPL-2.0 |
-| MinIO Python | Apache-2.0 |
-| Paramiko | LGPL-2.1 |
-| httpx | BSD-3-Clause |
-| Tenacity | Apache-2.0 |
-| Structlog | MIT / Apache-2.0 |
-| Pillow | HPND (MIT-like) |
-| React | MIT |
-| TanStack Query | MIT |
-| Vite | MIT |
-| Tailwind CSS | MIT |
+| Category | Component | License |
+|:---|:---|:---|
+| **Language** | Python 3.11 | PSF |
+| **Frameworks** | FastAPI, React 18, Vite | MIT |
+| **Machine Learning** | PyTorch, torchvision | BSD-3-Clause |
+| **Infrastructure** | Postgres 16, Redis 7, MinIO | LGPL/AGPL/Custom |
+| **Security** | HashiCorp Vault, Casbin | BSL / Apache-2.0 |
+| **Communication** | Paramiko, asyncpg, hvac | LGPL / MIT |
 
-*(Full `pip audit` and `pnpm licenses` output to be attached before final submission.)*
+---
+
+## 🛠 Component-Specific Licensing
+
+### Member 1 — ML Artifacts
+- **Model Weights**: ConvNeXt-Tiny (PyTorch/torchvision) - BSD-3-Clause.
+- **Evaluation Logic**: Golden-set replay scripts - MIT.
+
+### Member 2 — Frontend Assets
+- **UI Stack**: React, TanStack Query, Tailwind CSS - MIT.
+- **Iconography**: Lucide React - ISC.
+
+### Member 3 — Pipeline & Infrastructure
+- **Containerization**: `atmoz/sftp` - MIT.
+- **Database Adapters**: SQLAlchemy, Alembic - MIT.
+- **Object Storage**: MinIO Python SDK - Apache-2.0.
+
+---
+
+> [!TIP]
+> Use `pip audit` and `pnpm licenses` to generate a full recursive dependency report before production deployment.

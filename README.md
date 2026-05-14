@@ -1,54 +1,68 @@
-# Document Classifier as an Authenticated Service
+# Document Classifier Service
 
-## Model Threshold
+An end-to-end authenticated service for automatic document layout classification using fine-tuned ConvNeXt-Tiny models.
 
-- **ConvNeXt test top-1 accuracy ≥ 0.85** (committed threshold; the model card must meet or exceed this)
+## 📋 System Overview
+The service automates the classification of 16 document layout categories (invoices, resumes, letters, etc.). It handles the full lifecycle:
+1. **Ingestion**: Polls SFTP for TIFF images and moves them to secure object storage.
+2. **Classification**: Asynchronous inference using a fine-tuned Vision Transformer (ConvNeXt).
+3. **Review**: Authenticated UI for browsing predictions, inspecting overlays, and manual relabeling.
 
-## Latency Budgets
+---
 
-| Path | p95 Budget | Status |
-|---|---|---|
-| API cached read | < 50 ms | Placeholder — benchmark after integration |
-| API uncached read | < 200 ms | Placeholder — benchmark after integration |
-| Inference per document (CPU, ConvNeXt Tiny/Small) | < 1.0 s | Placeholder — benchmark after integration |
-| End-to-end (SFTP drop → visible in `GET /batches/{bid}`) | < 10 s | Placeholder — benchmark after integration |
+## 🛠 Technology Stack
 
-### Benchmark Methodology
+### Backend
+- **Core**: Python 3.11, FastAPI
+- **Auth**: `fastapi-users`, Casbin (RBAC), HashiCorp Vault
+- **Data**: SQLAlchemy 2.0 (Async), Alembic, PostgreSQL 16
+- **Tasks**: RQ (Redis Queue), Redis 7
 
-Run `hey -n 200 -c 10` against the local compose stack with 50 warmed-up requests. Record date and exact command alongside numbers.
+### Machine Learning
+- **Backbone**: `convnext_tiny`
+- **Training**: Google Colab ([Training Notebook](https://colab.research.google.com/drive/14s1vsg8iVFfOQJxnOE5K4mwymwITiXSM?usp=sharing))
+- **Validation**: Golden-set replay with SHA-256 integrity checks.
 
-```bash
-# Cached read
-hey -n 200 -c 10 -H "Authorization: Bearer $TOKEN" http://localhost:8000/batches
+### Frontend
+- **Framework**: React 18, TypeScript, Vite
+- **State**: TanStack Query v5, React Router v6
+- **Styling**: Tailwind CSS
 
-# Uncached read (after cache invalidation)
-hey -n 200 -c 10 -H "Authorization: Bearer $TOKEN" http://localhost:8000/batches/{bid}
-```
+---
 
-Results to be filled in after Day 4 integration pass.
+## 👥 Team & Responsibilities
 
-## Quick Start
+| Member | Focus Area | Key Components |
+|:---|:---|:---|
+| **Member 1** | ML & Inference | Model fine-tuning, `predictor.py`, `worker/` logic. |
+| **Member 2** | API & Frontend | FastAPI routers, Services, Auth, React UI. |
+| **Member 3** | Data & Infrastructure | DB Schema, SFTP Ingest, Docker-Compose, CI/CD. |
 
-```bash
-cp .env.example .env
-# Edit .env: set VAULT_TOKEN
-docker compose up -d
-# Wait for all services healthy
-# Frontend: http://localhost:5173
-# API: http://localhost:8000/docs
-# MinIO Console: http://localhost:9001
-# Vault: http://localhost:8200
-```
+---
 
-## Stack
+## 🚀 Quick Start
 
-- **Backend:** Python 3.11, FastAPI, fastapi-users[sqlalchemy], Casbin, fastapi-cache2[redis], RQ, SQLAlchemy 2 (async), Alembic, asyncpg, hvac, minio, paramiko, structlog
-- **Frontend:** React 18, TypeScript, Vite, TanStack Query v5, React Router v6, Tailwind CSS
-- **Infra:** Postgres 16, Redis 7, MinIO, atmoz/sftp, HashiCorp Vault dev mode
-- **ML:** torchvision ConvNeXt (Tiny or Small), fine-tuned on RVL-CDIP 16-class subset
+1. **Environment Setup**:
+   ```bash
+   cp .env.example .env
+   # Set VAULT_TOKEN in .env
+   ```
 
-## Team
+2. **Launch Stack**:
+   ```bash
+   docker compose up -d
+   ./docker/vault-init.sh  # Seed secrets
+   ```
 
-- **M1** — ML & Inference Vertical: `backend/app/classifier/`, `backend/worker/`
-- **M2** — API, Auth & Services Vertical: `backend/app/api/`, `backend/app/services/`, `backend/app/domain/`, `frontend/`
-- **M3** — Data, Pipeline & Infra Vertical: `backend/app/db/`, `backend/app/repositories/`, `backend/app/infra/`, `backend/sftp_ingest/`, `docker-compose.yml`
+3. **Access Services**:
+   - **Frontend**: [http://localhost:5173](http://localhost:5173)
+   - **API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+   - **MinIO**: [http://localhost:9001](http://localhost:9001)
+
+---
+
+## 📖 Extended Documentation
+- [DECISIONS.md](./DECISIONS.md) — Architecture & design rationale.
+- [RUNBOOK.md](./RUNBOOK.md) — Operations, recovery, and maintenance.
+- [LICENSES.md](./LICENSES.md) — Dependency and dataset licensing.
+- [ARCH.md](./ARCH.md) — Detailed technical architecture and folder layout.

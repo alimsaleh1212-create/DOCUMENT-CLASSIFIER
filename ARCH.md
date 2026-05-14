@@ -1,200 +1,103 @@
-# Architecture — Document Classifier Service
+# Technical Architecture — Document Classifier
 
-## System Overview
+This document provides a detailed breakdown of the system architecture, folder layout, and data flow invariants.
 
-An internal document classification service for the RVL-CDIP dataset (16 layout classes). The system has four containers that run code: `api` (FastAPI), `worker` (RQ inference), `sftp-ingest` (SFTP polling), and `frontend` (React SPA). Infrastructure containers: `db` (Postgres 16), `redis` (Redis 7), `minio` (object storage), `sftp` (atmoz/sftp), `vault` (HashiCorp Vault dev mode).
+## 🏗 System Architecture
 
-## Folder Layout
+The Document Classifier is a distributed system consisting of four primary service containers and several infrastructure components:
 
-```
-project6/
+- **api**: FastAPI service handling HTTP requests, authentication, and permission enforcement.
+- **worker**: RQ (Redis Queue) consumer performing synchronous document inference and overlay generation.
+- **sftp-ingest**: Python polling worker that validates incoming SFTP uploads and moves them to object storage.
+- **frontend**: React SPA (Vite/TypeScript) providing the administrative and reviewer interface.
+
+### Infrastructure Layer
+- **PostgreSQL 16**: Primary metadata and audit log persistence.
+- **Redis 7**: Shared cache backend and task queue storage (AOF enabled).
+- **MinIO**: S3-compatible object storage for source TIFFs and generated overlays.
+- **HashiCorp Vault**: Secure storage for JWT signing keys and system credentials.
+- **SFTP (atmoz/sftp)**: External vendor drop-zone.
+
+---
+
+## 📂 Folder Layout
+
+```text
+project-root/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                    # FastAPI app, lifespan (Vault → Casbin → cache backend)
-│   │   ├── config.py                  # pydantic-settings; extra="forbid"
-│   │   ├── api/
-│   │   │   ├── deps.py                # shared Depends() (current_user, enforcer, request_id)
-│   │   │   └── routers/
-│   │   │       ├── auth.py
-│   │   │       ├── users.py
-│   │   │       ├── batches.py
-│   │   │       ├── predictions.py
-│   │   │       └── audit.py
-│   │   ├── services/
-│   │   │   ├── interfaces.py          # ABCs frozen by the team
-│   │   │   ├── user_service.py
-│   │   │   ├── batch_service.py
-│   │   │   ├── prediction_service.py
-│   │   │   └── audit_service.py
-│   │   ├── repositories/
-│   │   │   ├── interfaces.py          # ABCs frozen by the team
-│   │   │   ├── user_repo.py
-│   │   │   ├── batch_repo.py
-│   │   │   ├── prediction_repo.py
-│   │   │   └── audit_repo.py
-│   │   ├── domain/
-│   │   │   └── contracts.py           # Pydantic domain models
-│   │   ├── db/
-│   │   │   ├── models.py              # SQLAlchemy ORM — repos import only
-│   │   │   └── session.py             # async engine + session factory
-│   │   ├── infra/
-│   │   │   ├── vault.py
-│   │   │   ├── blob.py                # MinIO
-│   │   │   ├── queue.py               # RQ
-│   │   │   ├── sftp.py
-│   │   │   ├── cache.py               # fastapi-cache2 Redis backend init
-│   │   │   └── casbin/
-│   │   │       ├── model.conf
-│   │   │       └── policy.csv
-│   │   └── classifier/
-│   │       ├── predictor.py
-│   │       ├── overlay.py
-│   │       ├── startup_checks.py
-│   │       ├── models/                # classifier.pt (git LFS) + model_card.json
-│   │       └── eval/
-│   │           ├── golden.py
-│   │           ├── golden_images/
-│   │           └── golden_expected.json
-│   ├── worker/
-│   │   ├── __init__.py
-│   │   ├── __main__.py
-│   │   └── handler.py
-│   ├── sftp_ingest/
-│   │   ├── __init__.py
-│   │   └── __main__.py
-│   ├── alembic/
-│   │   ├── env.py
-│   │   └── versions/
-│   ├── tests/
-│   │   ├── api/
-│   │   ├── services/
-│   │   ├── repositories/
-│   │   ├── infra/
-│   │   ├── classifier/
-│   │   ├── worker/
-│   │   ├── sftp_ingest/
-│   │   ├── smoke/
-│   │   ├── fakes/
-│   │   └── fixtures/
+│   │   ├── main.py                    # Entrypoint & Lifespan (Vault → Casbin → Cache)
+│   │   ├── api/                       # HTTP Layer (Routers & Dependencies)
+│   │   ├── services/                  # Business Logic & Cache Invalidation
+│   │   ├── repositories/              # Data Access Layer (SQLAlchemy 2.0)
+│   │   ├── domain/                    # Pydantic Domain Contracts
+│   │   ├── db/                        # Persistence Schema & Session Management
+│   │   ├── infra/                     # Adapters (Vault, MinIO, RQ, SFTP)
+│   │   │   ├── worker_blob.py         # [NEW] Synchronous blob adapter for RQ
+│   │   │   └── ...
+│   │   └── classifier/                # ML Core (Predictor & Startup Checks)
+│   ├── worker/                        # RQ Worker entrypoint
+│   ├── sftp_ingest/                   # SFTP Polling entrypoint
+│   ├── alembic/                       # Schema Migrations
 │   ├── scripts/
-│   ├── pyproject.toml
-│   ├── uv.lock
-│   ├── alembic.ini
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── api/         # generated from OpenAPI
-│   │   ├── pages/
-│   │   ├── hooks/
-│   │   ├── App.tsx
-│   │   ├── main.tsx
-│   │   └── __tests__/
-│   ├── public/
-│   ├── package.json
-│   ├── pnpm-lock.yaml
-│   ├── tsconfig.json
-│   ├── vite.config.ts
-│   ├── tailwind.config.js
-│   ├── postcss.config.js
-│   ├── Dockerfile
-│   ├── .env.example
-│   └── index.html
-├── docker/
-│   ├── vault-init.sh
+│   │   ├── demo_pipeline.py           # [NEW] End-to-end integration test script
+│   │   └── ...
+│   └── tests/                         # Multi-layer test suite
+├── frontend/                          # React SPA Workspace
+├── docker/                            # Infrastructure configuration
+│   ├── sftp/
+│   │   └── fix-permissions.sh         # [NEW] SFTP mount permission fix
 │   ├── migrate.Dockerfile
-│   └── sftp_ingest.Dockerfile
-├── docs/
-│   ├── project-6.pdf
-│   ├── erd.md
-│   ├── blob_layout.md
-│   ├── vault_paths.md
-│   ├── AIE_Bootcamp_Coding_Guidelines.pdf
-│   ├── code_review_guidelines.pdf
-│   └── Engineering_Standards_Companion_Guide.pdf
-├── .gitignore
-├── .dockerignore
-├── .env.example
-├── .pre-commit-config.yaml
-├── docker-compose.yml
-├── README.md
-├── ARCH.md
-├── DECISIONS.md
-├── RUNBOOK.md
-├── SECURITY.md
-├── COLLABORATION.md
-├── LICENSES.md
-└── CLAUDE.md
+│   └── vault-init.sh
+├── README.md                          # Project Landing Page
+├── ARCH.md                            # Technical Deep-Dive
+├── DECISIONS.md                       # Architecture Decision Records
+└── RUNBOOK.md                         # Operational Procedures
 ```
 
-`frontend/` and `backend/` are independent workspaces. They share only the OpenAPI schema (`frontend/src/api/` is generated from it).
+---
 
-## Layer Boundaries
+## 🛡 Layer Boundaries & Invariants
 
-| Layer | Path | What lives here | What does NOT live here |
-|---|---|---|---|
-| HTTP | `backend/app/api/` | FastAPI routers, dependencies, request/response shaping | SQLAlchemy, external systems, cache invalidation |
-| Services | `backend/app/services/` | Business logic, transaction boundaries, cache invalidation | HTTP types, SQL queries |
-| Repositories | `backend/app/repositories/` | SQL via SQLAlchemy ORM | `HTTPException`, cache invalidation, business decisions |
-| Domain | `backend/app/domain/` | Pydantic models for the domain | ORM, persistence concerns |
-| ORM | `backend/app/db/models.py` | SQLAlchemy ORM models | Imported by **anything except** repositories |
-| Infra adapters | `backend/app/infra/` | Vault, MinIO, RQ, SFTP, Redis cache | Business logic, HTTP concerns |
-| Classifier | `backend/app/classifier/` | Model loading, prediction, golden-set replay | Anything that depends on the API or DB |
+| Layer | Responsibility | Constraints |
+|:---|:---|:---|
+| **HTTP** | Request/Response shaping, Auth enforcement. | No SQL; No business logic; No cache invalidation. |
+| **Services** | Orchestration, Transactions, Caching. | Source of truth for cache invalidation. |
+| **Repositories** | Data persistence and retrieval. | No `HTTPException`; No cache awareness. |
+| **Infra** | External system communication. | Implementation-specific (Vault, S3, etc). |
+| **Classifier** | Model inference and image processing. | Zero dependencies on DB or API layers. |
 
-## API Endpoint Table
+---
 
-| Method | Path | Role required | Cached? | Cache namespace |
-|---|---|---|---|---|
-| POST | `/auth/register` | public | no | - |
-| POST | `/auth/jwt/login` | public | no | - |
-| GET | `/me` | any authenticated | yes (60s) | `user:{user_id}` |
-| GET | `/users` | admin | no | - |
-| PATCH | `/users/{uid}/role` | admin | no (invalidates `user:{uid}`) | - |
-| GET | `/batches` | reviewer \| auditor \| admin | yes (30s) | `batches:list` |
-| GET | `/batches/{bid}` | reviewer \| auditor \| admin | yes (30s) | `batches:{bid}` |
-| GET | `/predictions/recent` | reviewer \| auditor \| admin | yes (15s) | `predictions:recent` |
-| PATCH | `/predictions/{pid}/label` | reviewer (top1 < 0.7) | no (invalidates `batches:*`, `predictions:recent`) | - |
-| GET | `/audit` | admin \| auditor | no | - |
+## 🚦 Endpoint Matrix
 
-## Frontend Route Map
+| Method | Path | Access | Cached |
+|:---|:---|:---|:---|
+| `GET` | `/me` | Any Auth | 60s |
+| `GET` | `/batches` | Reviewer+ | 30s |
+| `PATCH` | `/users/{id}/role` | Admin | Inval: `user:{id}` |
+| `PATCH` | `/predictions/{id}/label`| Reviewer | Inval: `batches:*` |
 
-| Path | Page | Role required | API consumed |
-|---|---|---|---|
-| `/login` | Login form | public | `POST /auth/jwt/login` |
-| `/me` | Profile | any authenticated | `GET /me` |
-| `/batches` | Batches list | reviewer/auditor/admin | `GET /batches` |
-| `/batches/:bid` | Batch detail | reviewer/auditor/admin | `GET /batches/:bid` |
-| `/admin/users` | User admin | admin | `GET /users`, `PATCH /users/:uid/role` |
-| `/audit` | Audit log viewer | admin/auditor | `GET /audit` |
+---
 
-## Endpoint Trace: `GET /batches/{bid}`
+## 🔄 Sequence Trace: Role Update Invalidation
 
-```
-Client → Router(batches.py)
-       → deps.current_user (JWT validation, 401 if missing)
-       → deps.require_role("reviewer", "auditor", "admin") (Casbin enforce, 403 if denied)
-       → BatchService.get_batch(bid)
-           → @cache(expire=30, namespace="batches:{bid}")  ← cache HIT: return directly
-           → cache MISS:
-               → IBatchRepository.get(bid)
-                   → SQLAlchemy async session
-                   → SELECT * FROM batches WHERE id = :bid
-                   → ORM row → domain model BatchOut
-               → cache populated
-               → return BatchOut
-       → Router returns JSON 200 with BatchOut
-       → Response header includes X-Cache: HIT/MISS and X-Request-ID
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant API as UserRouter
+    participant Service as UserService
+    participant DB as UserRepo
+    participant Cache as RedisCache
+
+    Admin->>API: PATCH /users/{id}/role
+    API->>Service: toggle_role(id, role)
+    Service->>DB: update_role(id, role)
+    DB-->>Service: Commit Success
+    Service->>Cache: invalidate(namespace="user:{id}")
+    Service-->>API: UserOut
+    API-->>Admin: 200 OK
 ```
 
-## Cache Invalidation Flow: Role Toggle
-
-```
-Admin PATCH /users/{uid}/role
-  → UserService.toggle_role(actor_id, uid, new_role)
-      1. IUserRepository.update_role(uid, new_role)  ← DB write
-      2. IAuditService.record(actor_id, "role_change", uid, {"from": old, "to": new_role})  ← same transaction
-      3. Commit transaction
-      4. await FastAPICache.clear(namespace=f"user:{uid}")  ← invalidation
-  → Router returns UserOut with new role
-```
-
-The invalidated user's next `GET /me` will be a cache miss and will re-fetch from DB, showing the new role without requiring a logout.
+> [!NOTE]
+> The next `GET /me` request for the updated user will result in a **Cache Miss**, forcing a fresh fetch from the DB and ensuring the new permissions take effect immediately without a logout.
