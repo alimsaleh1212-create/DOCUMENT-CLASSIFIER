@@ -25,6 +25,62 @@ function formatDate(iso: string) {
   });
 }
 
+// ── Card preview image (auto-loads via authenticated proxy) ──────────────────
+
+function DocPreviewImage({ prediction }: { prediction: PredictionOut }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let createdUrl: string | null = null;
+
+    if (!prediction.overlay_url) {
+      setError(true);
+      return;
+    }
+
+    client.get(`/predictions/${prediction.id}/overlay`, { responseType: "blob" })
+      .then((res) => {
+        if (cancelled) return;
+        createdUrl = URL.createObjectURL(res.data);
+        setBlobUrl(createdUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
+
+    return () => {
+      cancelled = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [prediction.id, prediction.overlay_url]);
+
+  if (error) {
+    return (
+      <div style={{ textAlign: "center", color: "#7A8DAE" }}>
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" style={{ margin: "0 auto 0.5rem", opacity: 0.5 }}>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18M9 21V9" />
+        </svg>
+        <div style={{ fontSize: "13px" }}>Still processing</div>
+      </div>
+    );
+  }
+
+  if (!blobUrl) {
+    return <div className="skeleton" style={{ width: "100%", height: "100%", borderRadius: 0 }} />;
+  }
+
+  return (
+    <img
+      src={blobUrl}
+      alt={displayName(prediction)}
+      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+    />
+  );
+}
+
 // ── Color dot ─────────────────────────────────────────────────────────────────
 
 function ColorDot({ color, size = 10 }: { color: string | null; size?: number }) {
@@ -413,6 +469,9 @@ export default function DocumentsPage() {
   const queryClient = useQueryClient();
   const canEdit = role === "admin" || role === "reviewer";
 
+  const [viewMode, setViewMode] = useState<"grid" | "card">("grid");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [labelFilter, setLabelFilter] = useState<string>("");
@@ -438,6 +497,17 @@ export default function DocumentsPage() {
     },
     staleTime: 15_000,
     placeholderData: (prev) => prev,
+  });
+
+  // Fetch all predictions (no pagination) when in Card view for category counts + filtering.
+  const { data: allPredictions } = useQuery<PredictionOut[]>({
+    queryKey: ["predictions", "all"],
+    queryFn: async () => {
+      const res = await client.get<PredictionOut[]>("/predictions", { params: { page: 1, limit: 500 } });
+      return res.data;
+    },
+    enabled: viewMode === "card",
+    staleTime: 15_000,
   });
 
   const relabelMutation = useMutation({
@@ -529,53 +599,91 @@ export default function DocumentsPage() {
     height: "32px",
   };
 
+  const viewToggle = (
+    <div style={{
+      display: "flex",
+      gap: "0.4rem",
+      background: "var(--bg-raised)",
+      padding: "0.35rem",
+      borderRadius: "8px",
+      border: "1px solid var(--border)",
+    }}>
+      {(["grid", "card"] as const).map((mode) => (
+        <button
+          key={mode}
+          onClick={() => {
+            setViewMode(mode);
+            setSelectedCategory(null);
+          }}
+          style={{
+            padding: "0.35rem 0.85rem",
+            background: viewMode === mode ? "var(--accent)" : "transparent",
+            color: viewMode === mode ? "#06080F" : "#E8F0FF",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "13px",
+            fontWeight: viewMode === mode ? 600 : 500,
+            fontFamily: "var(--font-display)",
+            transition: "all 0.15s",
+          }}
+        >
+          {mode === "grid" ? "Grid" : "Categories"}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <Layout
       title="Documents"
       subtitle="Classified documents — click labels, names, or comments to edit"
+      actions={viewToggle}
     >
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
       {viewingPred && <DocViewModal prediction={viewingPred} onClose={() => setViewingPred(null)} />}
 
-      {/* Filter bar */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: "0.75rem",
-        marginBottom: "1.25rem", flexWrap: "wrap",
-      }}>
-        <select
-          className="select"
-          value={labelFilter}
-          onChange={(e) => { setLabelFilter(e.target.value); setPage(1); }}
-          style={{ minWidth: "160px" }}
-        >
-          <option value="">All labels</option>
-          {PREDICTION_LABELS.map((l) => (
-            <option key={l} value={l}>{l.replace(/_/g, " ")}</option>
-          ))}
-        </select>
-
-        <select
-          className="select"
-          value={colorFilter}
-          onChange={(e) => { setColorFilter(e.target.value); setPage(1); }}
-          style={{ minWidth: "140px" }}
-        >
-          <option value="">All colors</option>
-          {COMMENT_COLORS.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
-
-        {(labelFilter || colorFilter) && (
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => { setLabelFilter(""); setColorFilter(""); setPage(1); }}
-            style={{ fontSize: "13px" }}
+      {/* Filter bar — Grid view only */}
+      {viewMode === "grid" && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "0.75rem",
+          marginBottom: "1.25rem", flexWrap: "wrap",
+        }}>
+          <select
+            className="select"
+            value={labelFilter}
+            onChange={(e) => { setLabelFilter(e.target.value); setPage(1); }}
+            style={{ minWidth: "160px" }}
           >
-            Clear filters
-          </button>
-        )}
-      </div>
+            <option value="">All labels</option>
+            {PREDICTION_LABELS.map((l) => (
+              <option key={l} value={l}>{l.replace(/_/g, " ")}</option>
+            ))}
+          </select>
+
+          <select
+            className="select"
+            value={colorFilter}
+            onChange={(e) => { setColorFilter(e.target.value); setPage(1); }}
+            style={{ minWidth: "140px" }}
+          >
+            <option value="">All colors</option>
+            {COMMENT_COLORS.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+
+          {(labelFilter || colorFilter) && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => { setLabelFilter(""); setColorFilter(""); setPage(1); }}
+              style={{ fontSize: "13px" }}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
 
       {isError && (
         <div style={{
@@ -590,41 +698,43 @@ export default function DocumentsPage() {
         </div>
       )}
 
-      {/* Column header — larger, brighter */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 160px 100px 90px 140px 130px",
-        gap: "0.75rem",
-        padding: "0.7rem 1rem 0.7rem 1.25rem",
-        fontSize: "13px",
-        fontFamily: "var(--font-display)",
-        color: "#E8F0FF",
-        fontWeight: 600,
-        letterSpacing: "0.04em",
-        borderBottom: "1px solid var(--border)",
-        marginBottom: "0.5rem",
-      }}>
-        <span>Document</span>
-        <span>Label</span>
-        <span>Confidence</span>
-        <span>Latency</span>
-        <span>Date</span>
-        <span style={{ textAlign: "right" }}>Actions</span>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-        {isLoading && Array.from({ length: pageSize > 6 ? 6 : pageSize }).map((_, i) => (
-          <div key={i} className="card" style={{
-            padding: "0.85rem 1rem",
+      {viewMode === "grid" && (
+        <>
+          {/* Column header — larger, brighter, properly aligned */}
+          <div style={{
             display: "grid",
-            gridTemplateColumns: "1fr 160px 100px 90px 140px 130px",
-            gap: "0.75rem", alignItems: "center",
+            gridTemplateColumns: "1.5fr 140px 110px 100px 120px 140px",
+            gap: "0.75rem",
+            padding: "0.7rem 1rem 0.7rem 1.25rem",
+            fontSize: "13px",
+            fontFamily: "var(--font-display)",
+            color: "#E8F0FF",
+            fontWeight: 600,
+            letterSpacing: "0.04em",
+            borderBottom: "1px solid var(--border)",
+            marginBottom: "0.5rem",
           }}>
-            {Array.from({ length: 6 }).map((_, j) => (
-              <div key={j} className="skeleton" style={{ height: "14px", width: j === 0 ? "70%" : "60%" }} />
-            ))}
+            <span>Document</span>
+            <span>Label</span>
+            <span>Confidence</span>
+            <span>Latency</span>
+            <span>Date</span>
+            <span style={{ textAlign: "right" }}>Actions</span>
           </div>
-        ))}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+            {isLoading && Array.from({ length: pageSize > 6 ? 6 : pageSize }).map((_, i) => (
+              <div key={i} className="card" style={{
+                padding: "0.85rem 1rem",
+                display: "grid",
+                gridTemplateColumns: "1.5fr 140px 110px 100px 120px 140px",
+                gap: "0.75rem", alignItems: "center",
+              }}>
+                {Array.from({ length: 6 }).map((_, j) => (
+                  <div key={j} className="skeleton" style={{ height: "14px", width: j === 0 ? "70%" : "60%" }} />
+                ))}
+              </div>
+            ))}
 
         {!isLoading && predictions?.length === 0 && (
           <div className="card" style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>
@@ -651,7 +761,7 @@ export default function DocumentsPage() {
               {/* Main row */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 160px 100px 90px 140px 130px",
+                gridTemplateColumns: "1.5fr 140px 110px 100px 120px 140px",
                 gap: "0.75rem", alignItems: "center",
                 padding: "0.85rem 1rem",
               }}>
@@ -884,10 +994,10 @@ export default function DocumentsPage() {
             </div>
           );
         })}
-      </div>
+          </div>
 
-      {/* Bottom pagination — with rows-per-page selector */}
-      {(predictions?.length ?? 0) > 0 && (
+          {/* Bottom pagination — with rows-per-page selector */}
+          {(predictions?.length ?? 0) > 0 && (
         <div style={{
           display: "flex",
           justifyContent: "space-between",
@@ -950,6 +1060,385 @@ export default function DocumentsPage() {
             </button>
           </div>
         </div>
+      )}
+        </>
+      )}
+
+      {/* Card View */}
+      {viewMode === "card" && (
+        <>
+          {!selectedCategory ? (
+            // Category browser — sorted by count descending
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gap: "1.25rem",
+              marginBottom: "2rem",
+            }}>
+              {(() => {
+                const iconMap: Record<string, string> = {
+                  letter: "📄", form: "📋", email: "✉️", handwritten: "✍️",
+                  advertisement: "📢", scientific_report: "🔬", scientific_publication: "📚",
+                  specification: "📐", file_folder: "📁", news_article: "📰",
+                  budget: "💰", invoice: "🧾", presentation: "🎯",
+                  questionnaire: "❓", resume: "👤", memo: "📝",
+                };
+
+                const categoriesWithCounts = PREDICTION_LABELS.map((label) => ({
+                  label,
+                  count: allPredictions?.filter((p) => p.label === label).length ?? 0,
+                })).sort((a, b) => b.count - a.count);
+
+                return categoriesWithCounts.map(({ label, count }) => {
+                  const labelDisplay = label.replace(/_/g, " ");
+                  const isEmpty = count === 0;
+                  return (
+                    <button
+                      key={label}
+                      disabled={isEmpty}
+                      onClick={() => {
+                        setSelectedCategory(label);
+                        setPage(1);
+                      }}
+                      style={{
+                        background: "var(--bg-raised)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "14px",
+                        padding: "2rem 1.25rem",
+                        cursor: isEmpty ? "not-allowed" : "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "1rem",
+                        minHeight: "200px",
+                        transition: "all 0.2s",
+                        opacity: isEmpty ? 0.4 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (isEmpty) return;
+                        (e.currentTarget as HTMLElement).style.background = "var(--accent-glow)";
+                        (e.currentTarget as HTMLElement).style.borderColor = "var(--accent)";
+                        (e.currentTarget as HTMLElement).style.transform = "translateY(-4px)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.background = "var(--bg-raised)";
+                        (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+                        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                      }}
+                    >
+                      <div style={{
+                        fontSize: "64px",
+                        lineHeight: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "92px",
+                        height: "92px",
+                        background: "var(--accent-glow)",
+                        borderRadius: "14px",
+                      }}>
+                        {iconMap[label] || "📄"}
+                      </div>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: "15px", fontWeight: 600, color: "#E8F0FF", marginBottom: "0.4rem", fontFamily: "var(--font-display)", textTransform: "capitalize" }}>
+                          {labelDisplay}
+                        </div>
+                        <div style={{
+                          fontSize: "13px",
+                          color: count > 0 ? "var(--accent)" : "#7A8DAE",
+                          fontFamily: "var(--font-mono)",
+                          fontWeight: count > 0 ? 600 : 400,
+                        }}>
+                          {count} {count === 1 ? "document" : "documents"}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+          ) : (
+            // Document cards in selected category
+            <div>
+              <button
+                onClick={() => setSelectedCategory(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--accent)",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontFamily: "var(--font-display)",
+                  marginBottom: "1.5rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                ← Back to categories
+              </button>
+
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+                gap: "1.75rem",
+              }}>
+                {allPredictions?.filter((p) => p.label === selectedCategory).map((pred) => (
+                  <div
+                    key={pred.id}
+                    className="card animate-fade-up"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      borderLeft: `4px solid ${COMMENT_COLORS.find((c) => c.value === pred.comment_color)?.hex ?? "var(--border)"}`,
+                      overflow: "hidden",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(-6px)";
+                      (e.currentTarget as HTMLElement).style.boxShadow = "0 20px 50px rgba(0,0,0,0.5)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                      (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                    }}
+                  >
+                    {/* Preview area — auto-loaded image */}
+                    <div
+                      onClick={() => setViewingPred(pred)}
+                      style={{
+                        height: "320px",
+                        background: "var(--bg-base)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        position: "relative",
+                        overflow: "hidden",
+                      }}
+                      title="Click to open full view"
+                    >
+                      <DocPreviewImage prediction={pred} />
+                    </div>
+
+                    {/* Info section */}
+                    <div style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+                      {/* Document name */}
+                      <div>
+                        <div style={{ fontSize: "11px", color: "#7A8DAE", fontFamily: "var(--font-mono)", marginBottom: "0.3rem", textTransform: "uppercase" }}>
+                          Document
+                        </div>
+                        {editingName === pred.id ? (
+                          <input
+                            autoFocus
+                            value={nameDraft}
+                            onChange={(e) => setNameDraft(e.target.value)}
+                            onBlur={() => commitRename(pred)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") e.currentTarget.blur();
+                              if (e.key === "Escape") setEditingName(null);
+                            }}
+                            placeholder={fallbackDocName(pred)}
+                            style={{
+                              width: "100%",
+                              background: "var(--bg-surface)",
+                              color: "#E8F0FF",
+                              border: "1px solid var(--accent)",
+                              borderRadius: "4px",
+                              padding: "0.4rem 0.6rem",
+                              fontSize: "14px",
+                              outline: "none",
+                            }}
+                          />
+                        ) : (
+                          <div
+                            onClick={() => canEdit && setEditingName(pred.id)}
+                            style={{
+                              fontSize: "14px",
+                              fontWeight: 500,
+                              color: "#E8F0FF",
+                              cursor: canEdit ? "pointer" : "default",
+                            }}
+                          >
+                            {displayName(pred)}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Label + Confidence + Latency */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                        <div>
+                          <div style={{ fontSize: "11px", color: "#7A8DAE", fontFamily: "var(--font-mono)", marginBottom: "0.3rem", textTransform: "uppercase" }}>
+                            Label
+                          </div>
+                          {editingLabel === pred.id && canEdit ? (
+                            <select
+                              autoFocus
+                              className="select"
+                              defaultValue={pred.label}
+                              disabled={relabelMutation.isPending}
+                              style={{ fontSize: "12px", padding: "0.3rem" }}
+                              onChange={(e) => relabelMutation.mutate({ pid: pred.id, label: e.target.value })}
+                              onBlur={() => setEditingLabel(null)}
+                            >
+                              {PREDICTION_LABELS.map((l) => (
+                                <option key={l} value={l}>{l.replace(/_/g, " ")}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div onClick={() => canEdit && setEditingLabel(pred.id)} style={{ cursor: canEdit ? "pointer" : "default" }}>
+                              <LabelBadge label={pred.label} />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: "11px", color: "#7A8DAE", fontFamily: "var(--font-mono)", marginBottom: "0.3rem", textTransform: "uppercase" }}>
+                            Confidence
+                          </div>
+                          <ConfidencePill value={pred.top1_confidence} />
+                        </div>
+                      </div>
+
+                      {/* Latency */}
+                      <div>
+                        <div style={{ fontSize: "11px", color: "#7A8DAE", fontFamily: "var(--font-mono)", marginBottom: "0.3rem", textTransform: "uppercase" }}>
+                          Latency
+                        </div>
+                        <LatencyPill ms={pred.latency_ms} />
+                      </div>
+
+                      {/* Comment preview */}
+                      {pred.comment && (
+                        <div style={{
+                          padding: "0.5rem 0.75rem",
+                          background: "var(--bg-raised)",
+                          borderLeft: `2px solid ${COMMENT_COLORS.find((c) => c.value === pred.comment_color)?.hex ?? "var(--border)"}`,
+                          borderRadius: "4px",
+                        }}>
+                          <div style={{ fontSize: "12px", color: "#E8F0FF", lineHeight: 1.4 }}>
+                            {pred.comment.substring(0, 60)}
+                            {pred.comment.length > 60 ? "..." : ""}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      <div style={{
+                        display: "flex",
+                        gap: "0.4rem",
+                        marginTop: "0.5rem",
+                        flexWrap: "wrap",
+                      }}>
+                        <button
+                          title="View full document"
+                          onClick={() => setViewingPred(pred)}
+                          style={{
+                            flex: 1,
+                            padding: "0.4rem 0.6rem",
+                            background: "var(--accent)",
+                            color: "#06080F",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            fontFamily: "var(--font-display)",
+                            transition: "all 0.15s",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.opacity = "0.85"}
+                          onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.opacity = "1"}
+                        >
+                          View
+                        </button>
+
+                        {canEdit && (
+                          <>
+                            <button
+                              title="Edit label"
+                              onClick={() => setEditingLabel(pred.id)}
+                              style={{
+                                padding: "0.4rem 0.6rem",
+                                background: "var(--bg-raised)",
+                                border: "1px solid var(--border)",
+                                color: "#E8F0FF",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: 500,
+                                fontFamily: "var(--font-display)",
+                              }}
+                            >
+                              Label
+                            </button>
+                            <button
+                              title="Add comment"
+                              onClick={() => setEditingComment(pred.id)}
+                              style={{
+                                padding: "0.4rem 0.6rem",
+                                background: "var(--bg-raised)",
+                                border: "1px solid var(--border)",
+                                color: "#E8F0FF",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: 500,
+                                fontFamily: "var(--font-display)",
+                              }}
+                            >
+                              Note
+                            </button>
+                            <button
+                              title="Set color"
+                              onClick={() => setEditingColor(pred.id)}
+                              style={{
+                                padding: "0.4rem 0.6rem",
+                                background: "var(--bg-raised)",
+                                border: "1px solid var(--border)",
+                                color: "#E8F0FF",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: 500,
+                                fontFamily: "var(--font-display)",
+                              }}
+                            >
+                              Color
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Comment editor */}
+                      {editingComment === pred.id && canEdit && (
+                        <div style={{ marginTop: "0.5rem" }}>
+                          <CommentEditor
+                            prediction={pred}
+                            onSave={(comment, color) => commentMutation.mutate({ pid: pred.id, comment, color })}
+                            onCancel={() => setEditingComment(null)}
+                            isSaving={commentMutation.isPending}
+                          />
+                        </div>
+                      )}
+
+                      {/* Color picker */}
+                      {editingColor === pred.id && canEdit && (
+                        <div style={{ marginTop: "0.5rem" }}>
+                          <CardColorPicker
+                            prediction={pred}
+                            onSave={(color) => applyCardColor(pred, color)}
+                            onCancel={() => setEditingColor(null)}
+                            isSaving={commentMutation.isPending}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </Layout>
   );
