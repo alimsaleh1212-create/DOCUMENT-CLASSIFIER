@@ -83,12 +83,23 @@ services:
 
   sftp:
     image: atmoz/sftp
+    # Cap nofile ulimit. Docker's default (~1B) causes OpenSSH 8.4's
+    # closefrom() shim to loop close() over every FD on each connection,
+    # hanging internal-sftp before the SFTP version exchange.
+    # See https://github.com/atmoz/sftp/issues/378
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     ports:
       - "${SFTP_PORT:-2222}:22"
     volumes:
-      - sftpdata:/home/docscanner/incoming
-      # Init script fixes the incoming dir ownership; volume mount points
-      # inherit root ownership by default which blocks docscanner writes.
+      # Mount the volume at the chroot root so incoming/, processed/, and
+      # quarantine/ live on the same filesystem — POSIX rename() can't
+      # cross filesystems, and sftp-ingest moves files between them.
+      - sftpdata:/home/docscanner
+      # Init script creates the subdirs with docscanner ownership; volume
+      # mount roots inherit root ownership which blocks user writes.
       - ./docker/sftp/fix-permissions.sh:/etc/sftp.d/fix-permissions.sh:ro
     command: "${SFTP_USER:-docscanner}:${SFTP_PASSWORD}:1001"
 

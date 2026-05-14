@@ -23,7 +23,9 @@ class RQQueue:
         self._job_func = job_func
 
     def enqueue(self, job: ClassifyJob) -> None:
-        self._queue.enqueue(self._job_func, job.model_dump_json())
+        # Pass a JSON-serializable dict (UUIDs as strings) — the handler
+        # signature is `classify_job(payload: dict)` and does ClassifyJob(**payload).
+        self._queue.enqueue(self._job_func, job.model_dump(mode="json"))
 
 
 def build_worker_queues(redis_url: str) -> list[Queue]:
