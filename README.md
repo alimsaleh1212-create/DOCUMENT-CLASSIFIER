@@ -52,3 +52,51 @@ docker compose up -d
 - **M1** — ML & Inference Vertical: `backend/app/classifier/`, `backend/worker/`
 - **M2** — API, Auth & Services Vertical: `backend/app/api/`, `backend/app/services/`, `backend/app/domain/`, `frontend/`
 - **M3** — Data, Pipeline & Infra Vertical: `backend/app/db/`, `backend/app/repositories/`, `backend/app/infra/`, `backend/sftp_ingest/`, `docker-compose.yml`
+
+# Document Classification System
+
+A document classification system trained to classify 16 document layout categories using a ConvNeXt-Tiny backbone.
+
+## Model Overview
+
+- Backbone: `convnext_tiny`
+- Weights: `ConvNeXt_Tiny_Weights.IMAGENET1K_V1`
+- Fine-tuning: Full fine-tuning
+- Classes: 16 document categories
+- Dataset: RVL-CDIP
+
+## Training Environment
+
+Training was performed in Google Colab using GPU acceleration.
+
+Google Colab notebook:  
+https://colab.research.google.com/drive/14s1vsg8iVFfOQJxnOE5K4mwymwITiXSM?usp=sharing
+
+The notebook includes:
+
+- Dataset preparation
+- Data preprocessing
+- Training pipeline
+- Model fine-tuning
+- Evaluation
+- Artifact generation
+
+## Project Documentation
+
+- `DECISIONS.md` — design and ML decisions
+- `RUNBOOK.md` — troubleshooting and operational procedures
+- `LICENSES.md` — licensing information
+
+## API & Authentication (Member 2)
+
+- **FastAPI**: Asynchronous API with structured logging and standard error handling.
+- **Auth**: JWT-based authentication via `fastapi-users`. Signing keys are fetched securely from Vault.
+- **RBAC**: Role-Based Access Control using Casbin. Policies are managed as data.
+- **Frontend**: A React SPA built with Vite and TanStack Query, featuring real-time cache observability.
+
+## Data Pipeline & Infrastructure (Member 3)
+
+- **Orchestration**: Full stack defined in `docker-compose.yml` with health-checked boot ordering.
+- **Persistence**: PostgreSQL 16 for metadata, MinIO for object storage (blobs and overlays).
+- **Ingestion**: An autonomous SFTP polling worker that validates and quarantines incoming TIFFs.
+- **Async Processing**: RQ (Redis Queue) handles background inference jobs with persistent queueing.

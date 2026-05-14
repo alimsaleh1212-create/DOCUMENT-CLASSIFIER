@@ -36,3 +36,31 @@ See: https://www.cs.cmu.edu/~aharley/rvl-cdip/
 | Tailwind CSS | MIT |
 
 *(Full `pip audit` and `pnpm licenses` output to be attached before final submission.)*
+# Member 1 – Data License
+
+Dataset: RVL-CDIP
+
+License type:
+
+Academic / Research-Only
+
+Project usage:
+
+Educational purposes only.
+
+Reference:
+
+https://adamharley.com/rvl-cdip/
+
+# Member 2 – Frontend Licenses
+
+- **Stack**: React 18 (MIT), Vite (MIT), TanStack Query (MIT), Tailwind CSS (MIT).
+- **Icons**: Lucide React (ISC) - used for status badges and navigation.
+
+# Member 3 – Infra & Pipeline Licenses
+
+- **PostgreSQL**: PostgreSQL License.
+- **Redis**: RSAL / SSPL.
+- **MinIO**: AGPLv3.
+- **HashiCorp Vault**: BSL 1.1 (Business Source License).
+- **SFTP (atmoz/sftp)**: MIT.
