@@ -1,65 +1,62 @@
-# Architecture Decisions
+# Architecture Decision Records (ADR)
 
-This document records the key architectural decisions made during development.
+This document records the key architectural decisions made during the development of the Document Classifier service.
 
-| # | Decision | Context | Alternatives Considered | Rationale |
-|---|---|---|---|---|
-| 1 | ConvNeXt Tiny as backbone | Need a model that achieves ≥85% top-1 on RVL-CDIP 16-class test split while staying under 1s p95 inference on CPU | ConvNeXt Small (higher accuracy but slower), ResNet-50 (simpler but lower accuracy), ViT (better accuracy but much slower on CPU) | M1 will document the final choice with freeze policy and training details |
-| 2 | FastAPI + fastapi-users | Need authentication with JWT, role-based access, and async support | Django (too heavy), Flask-JWT (no async), hand-rolled JWT (security risk) | Required by project brief; fastapi-users provides user management, registration, and JWT out of the box |
-| 3 | RQ over Celery | Need a task queue for inference jobs | Celery (more features), Dramatiq (simpler but less ecosystem) | Required by project brief; RQ is simpler, Redis-backed, sufficient for single-queue inference workload |
-| 4 | Casbin for RBAC | Need role-based access control with enforceable policies | Custom RBAC middleware (error-prone), Auth0 roles (external dependency) | Required by project brief; Casbin provides policy-as-data with SQLAlchemy adapter |
-| 5 | localStorage for JWT | Frontend needs JWT storage | httpOnly cookie (CSRF concerns for same-origin SPA), session storage (lost on tab close) | Simplicity for internal tool; XSS risk mitigated by strict CSP on nginx |
-| 6 | Postgres Async (asyncpg) | Need high-performance async database access | psycopg2 (synchronous), databases (legacy) | asyncpg is the fastest and most stable async driver for SQLAlchemy 2.0 |
+## Core System Decisions
 
-*(Each member will add their own ADRs as they implement their verticals.)*
-# Member 1 – ML & Inference Decisions
+| ID | Decision | Context | Rationale |
+|:---|:---|:---|:---|
+| 1 | **ConvNeXt Tiny Backbone** | High accuracy (≥85%) required with <1s CPU inference. | Best trade-off between model size (~110MB) and latency on standard hardware. |
+| 2 | **FastAPI + fastapi-users** | Need for secure auth, JWT, and async performance. | Built-in user management, registration, and JWT support out of the box. |
+| 3 | **RQ (Redis Queue)** | Background inference task management. | Simpler to manage than Celery; sufficient for single-queue workloads. |
+| 4 | **Casbin for RBAC** | Requirement for policy-gated access control. | Provides flexible policy-as-data with a standard SQLAlchemy adapter. |
+| 5 | **localStorage for JWT** | Frontend session persistence. | Simplifies internal tool development; XSS risks mitigated via strict CSP. |
+| 6 | **Postgres Async (asyncpg)** | High-performance DB access for SQLAlchemy 2.0. | The fastest and most stable async driver for Python/Postgres stacks. |
 
-## Backbone
+---
 
-`convnext_tiny` with `ConvNeXt_Tiny_Weights.IMAGENET1K_V1`
+## Member 1 — ML & Inference
 
-## Freeze Policy
+### [ADR-M1-01] Model Architecture & Weights
+- **Decision**: `convnext_tiny` with `IMAGENET1K_V1` weights.
+- **Rationale**: ConvNeXt-Tiny offers state-of-the-art performance for layout-heavy document classification tasks while remaining portable.
 
-`full_fine_tune`
+### [ADR-M1-02] Training Strategy
+- **Decision**: Full Fine-Tuning.
+- **Rationale**: All layers are unfrozen to maximize performance on the specialized 16-class RVL-CDIP dataset.
 
-All layers are unfrozen and trained together.
+### [ADR-M1-03] Data Augmentation
+- **Decision**: Minimal structural augmentation (`RandomRotation ±5°`, `RandomHorizontalFlip`).
+- **Rationale**: Helps reduce overfitting while preserving the critical layout structure of document types.
 
-## Data Augmentation
+---
 
-Mild augmentation during training:
+## Member 2 — API & Frontend
 
-- `RandomHorizontalFlip(p=0.5)`
-- `RandomRotation(±5°)`
+### [ADR-M2-01] Frontend State Management
+- **Decision**: TanStack Query v5.
+- **Rationale**: Handles server-state synchronization, caching, and background refetching far better than manual `useEffect` hooks.
 
-## Reasoning
+### [ADR-M2-02] Service-Layer Caching
+- **Decision**: Caching implemented at the Service layer via `fastapi-cache2`.
+- **Rationale**: Keeps Routers focused on HTTP concerns and ensures business logic remains the source of truth for invalidation.
 
-ConvNeXt-Tiny offers a strong trade-off between model accuracy and model size (~110 MB).
+### [ADR-M2-03] Security Invariants
+- **Decision**: Single-admin demotion guard.
+- **Rationale**: Hard-coded safety check in `UserService` to prevent accidental removal of the last administrative account.
 
-Full fine-tuning maximizes performance on the 16 document layout classes.
+---
 
-Light augmentation helps reduce overfitting while preserving document structure and layout consistency.
+## Member 3 — Infra & Pipeline
 
-# Member 2 – API & Frontend Decisions
+### [ADR-M3-01] Migration Lifecycle
+- **Decision**: Container-based one-shot migrations.
+- **Rationale**: Alembic runs in a dedicated `migrate` container that must exit successfully before the API boots, ensuring schema consistency.
 
-## Frontend Stack
-React 18 + Vite + TanStack Query v5 + Tailwind CSS.
+### [ADR-M3-02] SFTP Ingestion Pipeline
+- **Decision**: Idempotent "Move-on-Success" strategy.
+- **Rationale**: Files are only moved to `processed/` after successful MinIO upload and Redis enqueueing, preventing data loss during crashes.
 
-## State Management
-TanStack Query for server state (caching, loading states, refetching). Local component state for UI-only concerns.
-
-## JWT Storage
-`localStorage`. We prioritized implementation simplicity for an internal tool. XSS risks are mitigated via strict Content Security Policy (CSP) headers in the Nginx production container.
-
-## Service-Layer Caching
-Caching is implemented at the Service layer (using `fastapi-cache2`) rather than the Router. This ensures business logic remains the source of truth for cache invalidation.
-
-# Member 3 – Infra & Data Decisions
-
-## Task Queue
-RQ (Redis Queue) was selected over Celery for its simplicity and deep integration with Redis. It handles the single-queue inference workload with lower overhead.
-
-## Migration Strategy
-Alembic runs as a separate `migrate` container that must complete successfully before the `api` or `worker` services start. This ensures the schema is always in a consistent state.
-
-## SFTP Ingestion
-An idempotent polling strategy was implemented. Files are moved to a `processed/` folder on the SFTP server only after a successful upload to MinIO and successful job enqueueing in Redis.
+### [ADR-M3-03] Redis Persistence
+- **Decision**: Redis AOF (Append-Only File) enabled.
+- **Rationale**: Ensures the RQ task queue survives container restarts or system failures.

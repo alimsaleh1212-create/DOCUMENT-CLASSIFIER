@@ -1,141 +1,80 @@
-# Runbook — Document Classifier Service
+# Runbook — Document Classifier Operations
 
-## Starting the Stack
+Procedures for deployment, recovery, and vertical-specific troubleshooting.
 
+## 🚀 Standard Operations
+
+### Starting the Stack
 ```bash
 cp .env.example .env
-# Edit .env: set VAULT_TOKEN
+# Set VAULT_TOKEN in .env
 docker compose up -d
-# Wait for all services healthy:
-docker compose ps
-# Seed Vault (first time only):
+
+# Seed Vault (Initial setup only)
 ./docker/vault-init.sh
 ```
 
-## Stopping the Stack
-
-```bash
-docker compose down
-# To preserve data:
-docker compose down  # volumes remain
-# To wipe data:
-docker compose down -v
-```
-
-## Recovery Procedures
-
-### Redis Queue Lost
-
-If Redis loses the in-memory queue (container recreated without `appendonly`):
-
-1. Check `redis-cli LLEN rq:queue:classify` — if empty, jobs were lost
-2. Source files still exist on SFTP under `processed/`
-3. Re-enqueue from CLI: `python backend/scripts/enqueue_local.py <batch_id> <doc_id>`
-4. Verify via `GET /batches/{bid}`
-
-### Vault Kill Drill
-
-1. `docker compose stop vault`
-2. `docker compose restart api` — **must exit non-zero** (refuse-to-start invariant)
-3. `docker compose start vault`
-4. `docker compose restart api` — now boots successfully
-
-### Model SHA Mismatch
-
-1. `sha256sum backend/app/classifier/models/classifier.pt` — compare with `model_card.json`
-2. If mismatch: re-download from LFS (`git lfs pull`)
-3. API and worker both check SHA at startup; mismatch = exit(1)
-
-### Rotate Vault Token
-
-1. Generate new token: `vault token create`
-2. Update `.env` with new `VAULT_TOKEN`
-3. `docker compose restart api worker sftp-ingest`
-
-### Database Migration
-
-```bash
-docker compose run migrate alembic upgrade head
-# To create a new migration:
-docker compose run migrate alembic revision --autogenerate -m "description"
-```
-
-# Member 1 – ML Runbook
-
-## SHA-256 mismatch on startup
-
-The worker and API automatically validate the SHA-256 checksum of `classifier.pt` against `model_card.json` during startup.
-
-If validation fails, startup is blocked and an error similar to the following is logged:
-
-startup_checks.sha_mismatch expected=<...> actual=<...>
-
-### Action Steps
-
-1. Verify that the correct `classifier.pt` and `model_card.json` files exist.
-2. Re-download the original artifacts through Git LFS.
-3. If retraining was intentional:
-   - regenerate the model card
-   - update the SHA-256 value
-   - commit both updated artifacts
+### Stopping the Stack
+- **Standard**: `docker compose down` (preserves volumes)
+- **Wipe Data**: `docker compose down -v` (deletes all databases/blobs)
 
 ---
 
-## Top-1 accuracy below threshold
+## 🛠 Maintenance & Recovery
 
-The startup check validates `test_top1` in `model_card.json`.
+### [REC-01] Redis Queue Recovery
+If the task queue is lost but source files exist on SFTP:
+1. Verify SFTP files are in `processed/`.
+2. Run re-enqueue script: `python backend/scripts/enqueue_local.py <batch_id>`
+3. Monitor status via `GET /batches/{bid}`.
 
-Current minimum threshold:
+### [REC-02] Database Migrations
+```bash
+# Apply latest migrations
+docker compose run migrate alembic upgrade head
 
-`0.50`
+# Generate new migration
+docker compose run migrate alembic revision --autogenerate -m "description"
+```
 
-If accuracy falls below this value, startup is blocked.
+### [MAINT-01] Disk Space Management
+Docker builds for this stack consume ~11GB. To reclaim space:
+- `docker system prune -a` (Global cleanup)
+- `docker builder prune -a` (Clear build cache)
 
-### Action Steps
+---
 
-1. Re-evaluate on the full test set or golden set.
-2. Confirm whether degradation is genuine.
-3. Retrain with additional data or more epochs if needed.
-4. Update artifacts after retraining.
+## 🔍 Vertical Troubleshooting
 
-# Member 2 – API & Auth Runbook
+### Member 1 — ML & Inference
+> [!IMPORTANT]
+> **Issue: SHA-256 Checksum Mismatch**
+> The worker validates `classifier.pt` against `model_card.json` at startup.
 
-## Service refuses to boot (Casbin/Vault error)
+**Action Steps:**
+1. Verify `classifier.pt` exists and was pulled via Git LFS.
+2. If the model was intentionally updated, regenerate the SHA-256 in `model_card.json`.
 
-The API service performs strict startup checks for Vault connectivity and Casbin policy presence.
+---
 
-### Action Steps
+### Member 2 — API & Authentication
+> [!WARNING]
+> **Issue: Service Refuses to Start (Vault/Casbin)**
+> The API blocks startup if secrets or policies are missing.
 
-1. Verify Vault is running and unsealed: `docker compose ps vault`.
-2. Check `.env` for the correct `VAULT_TOKEN`.
-3. If Casbin table is empty, ensure the `migrate` container finished successfully.
+**Action Steps:**
+1. Check Vault status: `docker compose ps vault`.
+2. Ensure the `migrate` container finished successfully (populates Casbin table).
+3. Verify `VAULT_TOKEN` in `.env`.
 
-## User permissions not taking effect
+---
 
-Role changes are cached at the service layer to optimize performance.
+### Member 3 — Data & Ingestion
+> [!NOTE]
+> **Issue: Files Stuck in SFTP `incoming/`**
+> Ingest worker might be quarantining invalid files.
 
-### Action Steps
-
-1. If a role change was made directly in the DB, the cache must be cleared manually: `redis-cli DEL "fastapi-cache:user:{user_id}"`.
-2. Normal role changes via the API automatically trigger cache invalidation.
-
-# Member 3 – Infra & Pipeline Runbook
-
-## SFTP files stuck in `incoming/`
-
-If the `sftp-ingest` worker is running but files are not moving, check for validation errors.
-
-### Action Steps
-
-1. Check logs: `docker compose logs sftp-ingest`.
-2. Look for `sftp.quarantine` entries. If a file is in `quarantine/`, it failed validation (e.g., non-TIFF or too large).
-3. Verify MinIO connectivity: `mc ls local/documents`.
-
-## Redis Queue (RQ) recovery
-
-If Redis data is lost and the queue is empty while files are still in `processed/`.
-
-### Action Steps
-
-1. Use the recovery script to re-enqueue batches: `python backend/scripts/enqueue_local.py <batch_id>`.
-2. Ensure Redis is running with `--appendonly yes` to prevent future data loss.
+**Action Steps:**
+1. Check ingest logs: `docker compose logs sftp-ingest`.
+2. Look for `sftp.quarantine` entries (indicates non-TIFF or oversized files).
+3. Verify MinIO connectivity and bucket existence.
