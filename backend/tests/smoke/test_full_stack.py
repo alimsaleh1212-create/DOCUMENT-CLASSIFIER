@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
-import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -11,6 +9,7 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+import paramiko
 import pytest
 
 API_BASE_URL = os.getenv("SMOKE_API_BASE_URL", "http://localhost:8000").rstrip("/")
@@ -29,8 +28,6 @@ def test_sftp_to_prediction_full_stack() -> None:
     Full stack smoke test:
     API auth -> SFTP TIFF drop -> ingest -> queue -> worker -> prediction API.
     """
-    _require_cli("sshpass")
-    _require_cli("sftp")
     _wait_for_api()
 
     token = _register_and_login()
@@ -55,11 +52,6 @@ def test_sftp_to_prediction_full_stack() -> None:
     assert latency < MAX_LATENCY_SECONDS, (
         f"smoke e2e latency {latency:.2f}s exceeded {MAX_LATENCY_SECONDS:.2f}s"
     )
-
-
-def _require_cli(name: str) -> None:
-    if shutil.which(name) is None:
-        pytest.fail(f"Required CLI not found for smoke test: {name}")
 
 
 def _wait_for_api() -> None:
@@ -99,39 +91,33 @@ def _upload_tiff(*, batch_id: str, document_id: str) -> None:
 
     remote_dir = f"incoming/{batch_id}"
     remote_path = f"{remote_dir}/{document_id}.tif"
-    batch = f"""
-mkdir incoming
-mkdir {remote_dir}
-put {SAMPLE_TIFF.as_posix()} {remote_path}
-bye
-"""
-    command = [
-        "sshpass",
-        "-p",
-        SFTP_PASSWORD,
-        "sftp",
-        "-o",
-        "StrictHostKeyChecking=no",
-        "-o",
-        "UserKnownHostsFile=/dev/null",
-        "-P",
-        str(SFTP_PORT),
-        f"{SFTP_USER}@{SFTP_HOST}",
-    ]
-    result = subprocess.run(
-        command,
-        input=batch,
-        text=True,
-        capture_output=True,
-        check=False,
-        timeout=20,
-    )
-    if result.returncode != 0:
-        pytest.fail(
-            "SFTP upload failed\n"
-            f"stdout:\n{result.stdout}\n"
-            f"stderr:\n{result.stderr}"
-        )
+
+    transport: paramiko.Transport | None = None
+    sftp_client: paramiko.SFTPClient | None = None
+    try:
+        transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
+        transport.banner_timeout = 10
+        transport.auth_timeout = 10
+        transport.connect(username=SFTP_USER, password=SFTP_PASSWORD)
+        sftp_client = paramiko.SFTPClient.from_transport(transport)
+        if sftp_client is None:
+            pytest.fail("Failed to open SFTP client")
+
+        for directory in ("incoming", remote_dir):
+            try:
+                sftp_client.mkdir(directory)
+            except OSError:
+                # Directory likely already exists; ignore and continue.
+                pass
+
+        sftp_client.put(str(SAMPLE_TIFF), remote_path)
+    except paramiko.SSHException as exc:
+        pytest.fail(f"SFTP upload failed: {exc}")
+    finally:
+        if sftp_client is not None:
+            sftp_client.close()
+        if transport is not None:
+            transport.close()
 
 
 def _poll_for_prediction(

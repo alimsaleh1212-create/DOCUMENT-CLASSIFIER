@@ -45,7 +45,14 @@ def get_request_id(request: Request) -> str:
 
 
 async def get_session(request: Request) -> AsyncGenerator[AsyncSession, None]:
-    """Yield an async DB session from the engine initialised by the lifespan."""
+    """
+    Yield an async DB session that auto-commits on success and rolls back on exception.
+
+    This pattern keeps transaction management at the request boundary, so write endpoints
+    don't need to call session.commit() explicitly. Any uncaught exception (HTTPException
+    raised by services, validation errors, etc.) triggers a rollback before the response
+    is sent.
+    """
     session_factory = getattr(request.app.state, "db", None)
     if session_factory is None:
         raise HTTPException(
@@ -53,7 +60,13 @@ async def get_session(request: Request) -> AsyncGenerator[AsyncSession, None]:
             detail="Database not ready",
         )
     async with session_factory() as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
+        else:
+            await session.commit()
 
 
 # ---------------------------------------------------------------------------

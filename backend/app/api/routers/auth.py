@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import create_access_token, hash_password, verify_password
-from app.api.deps import get_session, get_user_repo
+from app.api.deps import get_user_repo
 from app.domain.contracts import Role, UserCreate, UserOut
 from app.repositories.interfaces import IUserRepository
 
@@ -28,7 +27,6 @@ class _TokenOut(UserOut):
 async def register(
     body: UserCreate,
     request: Request,
-    session: AsyncSession = Depends(get_session),
     user_repo: IUserRepository = Depends(get_user_repo),
 ) -> UserOut:
     """Register a new user. The first registrant is automatically promoted to admin."""
@@ -40,17 +38,7 @@ async def register(
     hashed = hash_password(body.password)
     admin_count = await user_repo.count_admins()
     role = Role.admin if admin_count == 0 else Role.reviewer
-    user = await user_repo.create_user(body.email, hashed, role=role)
-    # Explicitly commit the session within a transaction context
-    try:
-        await session.commit()
-    except Exception as exc:
-        await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create user: {str(exc)}",
-        ) from exc
-    return user
+    return await user_repo.create_user(body.email, hashed, role=role)
 
 
 @router.post("/jwt/login", response_model=_TokenOut)

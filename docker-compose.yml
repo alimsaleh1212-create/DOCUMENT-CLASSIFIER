@@ -87,7 +87,17 @@ services:
       - "${SFTP_PORT:-2222}:22"
     volumes:
       - sftpdata:/home/docscanner/incoming
+      # Init script fixes the incoming dir ownership; volume mount points
+      # inherit root ownership by default which blocks docscanner writes.
+      - ./docker/sftp/fix-permissions.sh:/etc/sftp.d/fix-permissions.sh:ro
+    # Override command to fix ownership BEFORE atmoz/sftp's entrypoint runs sshd.
+    # We chain: user setup → chown → sshd (atmoz handles this via /etc/sftp.d/).
     command: "${SFTP_USER:-docscanner}:${SFTP_PASSWORD}:1001"
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -x sshd >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
 
   migrate:
     build:
