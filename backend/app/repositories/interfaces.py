@@ -93,6 +93,11 @@ class IPredictionRepository(ABC):
         comment_color: str | None,
     ) -> PredictionOut: ...
 
+    @abstractmethod
+    async def update_name(
+        self, prediction_id: str, document_name: str | None
+    ) -> PredictionOut: ...
+
 
 class IAuditRepository(ABC):
     @abstractmethod

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "../components/Layout";
 import { LabelBadge } from "../components/LabelBadge";
@@ -10,8 +10,12 @@ import { PREDICTION_LABELS, COMMENT_COLORS } from "../api/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function docName(pred: PredictionOut): string {
+function fallbackDocName(pred: PredictionOut): string {
   return `DOC-${pred.document_id.slice(0, 8).toUpperCase()}`;
+}
+
+function displayName(pred: PredictionOut): string {
+  return pred.document_name?.trim() || fallbackDocName(pred);
 }
 
 function formatDate(iso: string) {
@@ -45,13 +49,14 @@ function ConfidencePill({ value }: { value: number }) {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center",
-      padding: "0.15rem 0.5rem",
-      borderRadius: "4px",
-      fontSize: "13px",
+      padding: "0.2rem 0.55rem",
+      borderRadius: "5px",
+      fontSize: "14px",
       fontFamily: "var(--font-mono)",
+      fontWeight: 600,
       color,
-      background: `${color}18`,
-      border: `1px solid ${color}28`,
+      background: `${color}1a`,
+      border: `1px solid ${color}30`,
     }}>
       {pct}%
     </span>
@@ -62,32 +67,66 @@ function ConfidencePill({ value }: { value: number }) {
 
 function LatencyPill({ ms }: { ms: number | null }) {
   if (ms === null || ms === undefined) {
-    return <span style={{ color: "var(--text-dim)", fontSize: "13px" }}>—</span>;
+    return <span style={{ color: "var(--text-dim)", fontSize: "14px" }}>—</span>;
   }
   const color = ms < 500 ? "var(--success)" : ms < 1000 ? "var(--accent)" : "var(--warning)";
   return (
-    <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color }}>
+    <span style={{ fontFamily: "var(--font-mono)", fontSize: "14px", color, fontWeight: 500 }}>
       {ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`}
     </span>
   );
 }
 
-// ── Document viewer modal ─────────────────────────────────────────────────────
+// ── Document viewer modal (loads image via authenticated fetch) ──────────────
 
 function DocViewModal({ prediction, onClose }: { prediction: PredictionOut; onClose: () => void }) {
-  const [imgError, setImgError] = useState(false);
+  const [imgBlobUrl, setImgBlobUrl] = useState<string | null>(null);
+  const [imgError, setImgError] = useState<string | null>(null);
+  const [imgLoading, setImgLoading] = useState(true);
 
-  const { data, isLoading } = useQuery<{ overlay_url: string | null; document_url: string | null }>({
-    queryKey: ["doc-url", prediction.id],
-    queryFn: async () => {
-      const res = await client.get(`/predictions/${prediction.id}/document-url`);
-      return res.data;
-    },
-    staleTime: 300_000,
-  });
+  useEffect(() => {
+    let cancelled = false;
+    const blobUrlToRevoke: string | null = null;
 
-  const imageUrl = !imgError && data?.overlay_url ? data.overlay_url : null;
-  const hasImage = !!imageUrl;
+    async function loadImage() {
+      setImgLoading(true);
+      setImgError(null);
+      try {
+        // Fetch the overlay through the API proxy with bearer auth.
+        // Axios client carries auth interceptor, so use it.
+        const res = await client.get(`/predictions/${prediction.id}/overlay`, {
+          responseType: "blob",
+        });
+        if (cancelled) return;
+        const url = URL.createObjectURL(res.data);
+        setImgBlobUrl(url);
+      } catch (err) {
+        if (cancelled) return;
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status === 404) {
+          setImgError("This document has no overlay yet — it may still be processing or skipped.");
+        } else if (status === 503) {
+          setImgError("Blob storage is not configured in this environment.");
+        } else {
+          setImgError("Could not load the document image. Check API logs.");
+        }
+      } finally {
+        if (!cancelled) setImgLoading(false);
+      }
+    }
+
+    loadImage();
+    return () => {
+      cancelled = true;
+      if (blobUrlToRevoke) URL.revokeObjectURL(blobUrlToRevoke);
+    };
+  }, [prediction.id]);
+
+  useEffect(() => {
+    return () => {
+      if (imgBlobUrl) URL.revokeObjectURL(imgBlobUrl);
+    };
+  }, [imgBlobUrl]);
 
   return (
     <div
@@ -103,7 +142,7 @@ function DocViewModal({ prediction, onClose }: { prediction: PredictionOut; onCl
       <div
         className="animate-fade-up"
         style={{
-          width: "100%", maxWidth: "860px",
+          width: "100%", maxWidth: "920px",
           background: "var(--bg-surface)",
           border: "1px solid var(--border)",
           borderRadius: "var(--radius-lg)",
@@ -122,26 +161,26 @@ function DocViewModal({ prediction, onClose }: { prediction: PredictionOut; onCl
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <ColorDot color={prediction.comment_color} size={12} />
-            <h3 style={{ fontSize: "16px", margin: 0, fontFamily: "var(--font-display)", color: "#E8F0FF" }}>
-              {docName(prediction)}
+            <h3 style={{ fontSize: "17px", margin: 0, fontFamily: "var(--font-display)", color: "#F4F9FF" }}>
+              {displayName(prediction)}
             </h3>
             <LabelBadge label={prediction.label} />
           </div>
           <button
             onClick={onClose}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "0.25rem" }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#E8F0FF", padding: "0.3rem" }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
         </div>
 
-        {/* Body: metadata left + image right */}
+        {/* Body */}
         <div style={{ display: "flex", overflow: "auto", flex: 1 }}>
           {/* Metadata panel */}
           <div style={{
-            flex: "0 0 220px",
+            flex: "0 0 240px",
             borderRight: "1px solid var(--border-subtle)",
             padding: "1.25rem",
             display: "flex", flexDirection: "column", gap: "1rem",
@@ -149,11 +188,11 @@ function DocViewModal({ prediction, onClose }: { prediction: PredictionOut; onCl
             {[
               { label: "Confidence", value: <ConfidencePill value={prediction.top1_confidence} /> },
               { label: "Latency", value: <LatencyPill ms={prediction.latency_ms} /> },
-              { label: "Classified", value: <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>{formatDate(prediction.created_at)}</span> },
-              { label: "Batch", value: <code style={{ fontSize: "12px", color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>{prediction.batch_id.slice(0, 8)}…</code> },
+              { label: "Classified", value: <span style={{ fontSize: "13px", color: "#C8D4EA" }}>{formatDate(prediction.created_at)}</span> },
+              { label: "Batch", value: <code style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{prediction.batch_id.slice(0, 8)}…</code> },
             ].map(({ label, value }) => (
               <div key={label}>
-                <div style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.3rem" }}>
+                <div style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "#7A8DAE", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.3rem", fontWeight: 600 }}>
                   {label}
                 </div>
                 {value}
@@ -161,7 +200,7 @@ function DocViewModal({ prediction, onClose }: { prediction: PredictionOut; onCl
             ))}
             {prediction.comment && (
               <div>
-                <div style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.4rem" }}>
+                <div style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "#7A8DAE", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.4rem", fontWeight: 600 }}>
                   Note
                 </div>
                 <div style={{
@@ -170,24 +209,24 @@ function DocViewModal({ prediction, onClose }: { prediction: PredictionOut; onCl
                   borderLeft: `3px solid ${COMMENT_COLORS.find(c => c.value === prediction.comment_color)?.hex ?? "var(--border)"}`,
                   borderRadius: "var(--radius)",
                   fontSize: "13px",
-                  color: "var(--text)",
+                  color: "#E8F0FF",
                   lineHeight: 1.5,
                 }}>
                   {prediction.comment}
                 </div>
               </div>
             )}
-            {/* Top-5 breakdown */}
+            {/* Top-5 */}
             <div>
-              <div style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
+              <div style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "#7A8DAE", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.5rem", fontWeight: 600 }}>
                 Top-5
               </div>
               {prediction.top5.slice(0, 5).map(([lbl, conf]) => (
                 <div key={lbl} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.3rem" }}>
-                  <div style={{ flex: 1, height: "4px", background: "var(--bg-raised)", borderRadius: "2px", overflow: "hidden" }}>
+                  <div style={{ flex: 1, height: "5px", background: "var(--bg-raised)", borderRadius: "3px", overflow: "hidden" }}>
                     <div style={{ width: `${Math.round(conf * 100)}%`, height: "100%", background: "var(--accent)", transition: "width 0.4s" }} />
                   </div>
-                  <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "#C8D4EA", whiteSpace: "nowrap" }}>
                     {lbl.replace(/_/g, " ")} {Math.round(conf * 100)}%
                   </span>
                 </div>
@@ -200,38 +239,31 @@ function DocViewModal({ prediction, onClose }: { prediction: PredictionOut; onCl
             flex: 1,
             padding: "1.5rem",
             display: "flex", alignItems: "center", justifyContent: "center",
-            minHeight: "300px",
+            minHeight: "320px",
             background: "var(--bg-base)",
           }}>
-            {isLoading && (
-              <div className="skeleton" style={{ width: "100%", height: "320px", borderRadius: "var(--radius)" }} />
-            )}
-            {!isLoading && hasImage && (
+            {imgLoading && <div className="skeleton" style={{ width: "100%", height: "360px", borderRadius: "var(--radius)" }} />}
+            {!imgLoading && imgBlobUrl && (
               <img
-                src={imageUrl!}
-                alt={`Classified document ${docName(prediction)}`}
-                onError={() => setImgError(true)}
+                src={imgBlobUrl}
+                alt={`Classified document ${displayName(prediction)}`}
                 style={{
-                  maxWidth: "100%", maxHeight: "480px",
+                  maxWidth: "100%", maxHeight: "520px",
                   borderRadius: "var(--radius)",
                   border: "1px solid var(--border)",
                   objectFit: "contain",
+                  boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
                 }}
               />
             )}
-            {!isLoading && !hasImage && (
-              <div style={{ textAlign: "center", color: "var(--text-muted)" }}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.3, display: "block", margin: "0 auto 0.75rem" }}>
+            {!imgLoading && imgError && (
+              <div style={{ textAlign: "center", color: "#C8D4EA", maxWidth: "320px" }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" style={{ opacity: 0.4, display: "block", margin: "0 auto 0.75rem" }}>
                   <rect x="3" y="3" width="18" height="18" rx="2"/>
                   <path d="M3 9h18M9 21V9"/>
                 </svg>
-                <p style={{ fontSize: "14px", margin: "0 0 0.4rem" }}>
-                  {data?.overlay_url === null ? "No overlay generated yet" : "Image preview unavailable"}
-                </p>
-                <p style={{ fontSize: "12px", margin: 0, maxWidth: "260px" }}>
-                  {data?.overlay_url === null
-                    ? "This document may still be queued for classification."
-                    : "The overlay image could not be loaded. This is common in local dev mode when MinIO uses an internal hostname."}
+                <p style={{ fontSize: "14px", margin: 0, color: "#E8F0FF" }}>
+                  {imgError}
                 </p>
               </div>
             )}
@@ -245,10 +277,7 @@ function DocViewModal({ prediction, onClose }: { prediction: PredictionOut; onCl
 // ── Inline comment editor ─────────────────────────────────────────────────────
 
 function CommentEditor({
-  prediction,
-  onSave,
-  onCancel,
-  isSaving,
+  prediction, onSave, onCancel, isSaving,
 }: {
   prediction: PredictionOut;
   onSave: (comment: string | null, color: string | null) => void;
@@ -277,7 +306,7 @@ function CommentEditor({
           color: "var(--text)",
           border: "1px solid var(--border)",
           borderRadius: "var(--radius)",
-          padding: "0.5rem 0.75rem",
+          padding: "0.55rem 0.75rem",
           fontSize: "14px",
           fontFamily: "var(--font-body)",
           outline: "none",
@@ -285,7 +314,7 @@ function CommentEditor({
         }}
       />
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-        <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>Color:</span>
+        <span style={{ fontSize: "13px", color: "#C8D4EA" }}>Color:</span>
         {COMMENT_COLORS.map((c) => (
           <button
             key={c.value}
@@ -320,13 +349,10 @@ function CommentEditor({
   );
 }
 
-// ── Inline card color picker ──────────────────────────────────────────────────
+// ── Card color picker ────────────────────────────────────────────────────────
 
 function CardColorPicker({
-  prediction,
-  onSave,
-  onCancel,
-  isSaving,
+  prediction, onSave, onCancel, isSaving,
 }: {
   prediction: PredictionOut;
   onSave: (color: string | null) => void;
@@ -340,7 +366,7 @@ function CardColorPicker({
       borderTop: "1px solid var(--border-subtle)",
       display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap",
     }}>
-      <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>Card color:</span>
+      <span style={{ fontSize: "13px", color: "#C8D4EA" }}>Card color:</span>
       {COMMENT_COLORS.map((c) => (
         <button
           key={c.value}
@@ -348,7 +374,7 @@ function CardColorPicker({
           disabled={isSaving}
           onClick={() => onSave(prediction.comment_color === c.value ? null : c.value)}
           style={{
-            width: "20px", height: "20px",
+            width: "22px", height: "22px",
             borderRadius: "50%",
             background: c.hex,
             border: prediction.comment_color === c.value ? "2px solid #fff" : "2px solid transparent",
@@ -365,19 +391,15 @@ function CardColorPicker({
           disabled={isSaving}
           onClick={() => onSave(null)}
           style={{
-            fontSize: "12px", color: "var(--text-dim)", background: "none",
+            fontSize: "12px", color: "#C8D4EA", background: "none",
             border: "1px solid var(--border-subtle)", borderRadius: "4px",
-            padding: "0.1rem 0.4rem", cursor: "pointer",
+            padding: "0.15rem 0.5rem", cursor: "pointer",
           }}
         >
           Clear
         </button>
       )}
-      <button
-        className="btn btn-ghost btn-sm"
-        onClick={onCancel}
-        style={{ marginLeft: "auto", fontSize: "12px" }}
-      >
+      <button className="btn btn-ghost btn-sm" onClick={onCancel} style={{ marginLeft: "auto", fontSize: "12px" }}>
         Done
       </button>
     </div>
@@ -400,6 +422,8 @@ export default function DocumentsPage() {
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editingColor, setEditingColor] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState<string>("");
 
   const queryKey = ["predictions", "paginated", page, pageSize, labelFilter, colorFilter];
 
@@ -438,10 +462,7 @@ export default function DocumentsPage() {
 
   const commentMutation = useMutation({
     mutationFn: async ({ pid, comment, color }: { pid: string; comment: string | null; color: string | null }) => {
-      const res = await client.patch<PredictionOut>(`/predictions/${pid}/comment`, {
-        comment,
-        comment_color: color,
-      });
+      const res = await client.patch<PredictionOut>(`/predictions/${pid}/comment`, { comment, comment_color: color });
       return res.data;
     },
     onSuccess: (updated) => {
@@ -452,13 +473,37 @@ export default function DocumentsPage() {
       setEditingColor(null);
       setToast({ msg: "Saved.", type: "success" });
     },
-    onError: () => {
-      setToast({ msg: "Failed to save.", type: "error" });
+    onError: () => setToast({ msg: "Failed to save.", type: "error" }),
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: async ({ pid, name }: { pid: string; name: string | null }) => {
+      const res = await client.patch<PredictionOut>(`/predictions/${pid}/name`, { document_name: name });
+      return res.data;
     },
+    onSuccess: (updated) => {
+      queryClient.setQueryData<PredictionOut[]>(queryKey, (old) =>
+        old?.map((p) => (p.id === updated.id ? updated : p)) ?? []
+      );
+      setEditingName(null);
+      setToast({ msg: "Document renamed.", type: "success" });
+    },
+    onError: () => setToast({ msg: "Failed to rename document.", type: "error" }),
   });
 
   function applyCardColor(pred: PredictionOut, newColor: string | null) {
     commentMutation.mutate({ pid: pred.id, comment: pred.comment ?? null, color: newColor });
+  }
+
+  function commitRename(pred: PredictionOut) {
+    const trimmed = nameDraft.trim();
+    const newName = trimmed === "" ? null : trimmed;
+    const currentName = pred.document_name ?? null;
+    if (newName === currentName) {
+      setEditingName(null);
+      return;
+    }
+    renameMutation.mutate({ pid: pred.id, name: newName });
   }
 
   const hasNext = (predictions?.length ?? 0) >= pageSize;
@@ -469,10 +514,25 @@ export default function DocumentsPage() {
       ? COMMENT_COLORS.find((c) => c.value === pred.comment_color)?.hex ?? "transparent"
       : "transparent";
 
+  // Bigger, brighter action button base style
+  const actionBtnBase = {
+    background: "var(--bg-raised)",
+    border: "1px solid var(--border)",
+    cursor: "pointer",
+    padding: "0.45rem",
+    borderRadius: "6px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "background 0.12s, border-color 0.12s, color 0.12s",
+    width: "32px",
+    height: "32px",
+  };
+
   return (
     <Layout
       title="Documents"
-      subtitle="Classified documents — click labels to relabel, eye to view"
+      subtitle="Classified documents — click labels, names, or comments to edit"
     >
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
       {viewingPred && <DocViewModal prediction={viewingPred} onClose={() => setViewingPred(null)} />}
@@ -482,7 +542,6 @@ export default function DocumentsPage() {
         display: "flex", alignItems: "center", gap: "0.75rem",
         marginBottom: "1.25rem", flexWrap: "wrap",
       }}>
-        {/* Label filter */}
         <select
           className="select"
           value={labelFilter}
@@ -495,7 +554,6 @@ export default function DocumentsPage() {
           ))}
         </select>
 
-        {/* Color filter */}
         <select
           className="select"
           value={colorFilter}
@@ -517,34 +575,6 @@ export default function DocumentsPage() {
             Clear filters
           </button>
         )}
-
-        {/* Page size */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-          <label style={{ fontSize: "13px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>Per page:</label>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={pageSize}
-            onChange={(e) => {
-              const v = Math.max(1, Math.min(100, Number(e.target.value) || 10));
-              setPageSize(v);
-              setPage(1);
-            }}
-            style={{
-              width: "54px",
-              background: "var(--bg-surface)",
-              color: "var(--text)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius)",
-              padding: "0.25rem 0.4rem",
-              fontSize: "13px",
-              fontFamily: "var(--font-mono)",
-              textAlign: "center",
-              outline: "none",
-            }}
-          />
-        </div>
       </div>
 
       {isError && (
@@ -560,35 +590,34 @@ export default function DocumentsPage() {
         </div>
       )}
 
-      {/* Column header */}
+      {/* Column header — larger, brighter */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "1fr 150px 100px 90px 140px auto",
+        gridTemplateColumns: "1fr 160px 100px 90px 140px 130px",
         gap: "0.75rem",
-        padding: "0.5rem 1rem 0.5rem 1.25rem",
-        fontSize: "11px",
-        fontFamily: "var(--font-mono)",
-        color: "var(--text-dim)",
-        textTransform: "uppercase",
-        letterSpacing: "0.06em",
-        borderBottom: "1px solid var(--border-subtle)",
-        marginBottom: "0.25rem",
+        padding: "0.7rem 1rem 0.7rem 1.25rem",
+        fontSize: "13px",
+        fontFamily: "var(--font-display)",
+        color: "#E8F0FF",
+        fontWeight: 600,
+        letterSpacing: "0.04em",
+        borderBottom: "1px solid var(--border)",
+        marginBottom: "0.5rem",
       }}>
         <span>Document</span>
         <span>Label</span>
         <span>Confidence</span>
         <span>Latency</span>
         <span>Date</span>
-        <span />
+        <span style={{ textAlign: "right" }}>Actions</span>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-        {/* Skeleton rows */}
         {isLoading && Array.from({ length: pageSize > 6 ? 6 : pageSize }).map((_, i) => (
           <div key={i} className="card" style={{
-            padding: "0.75rem 1rem",
+            padding: "0.85rem 1rem",
             display: "grid",
-            gridTemplateColumns: "1fr 150px 100px 90px 140px auto",
+            gridTemplateColumns: "1fr 160px 100px 90px 140px 130px",
             gap: "0.75rem", alignItems: "center",
           }}>
             {Array.from({ length: 6 }).map((_, j) => (
@@ -597,7 +626,6 @@ export default function DocumentsPage() {
           </div>
         ))}
 
-        {/* Empty state */}
         {!isLoading && predictions?.length === 0 && (
           <div className="card" style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>
             No documents found
@@ -606,9 +634,9 @@ export default function DocumentsPage() {
           </div>
         )}
 
-        {/* Document cards */}
         {predictions?.map((pred, idx) => {
           const borderColor = cardBorderColor(pred);
+          const isEditingName = editingName === pred.id;
           return (
             <div
               key={pred.id}
@@ -623,25 +651,71 @@ export default function DocumentsPage() {
               {/* Main row */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 150px 100px 90px 140px auto",
+                gridTemplateColumns: "1fr 160px 100px 90px 140px 130px",
                 gap: "0.75rem", alignItems: "center",
-                padding: "0.75rem 1rem 0.75rem 1rem",
+                padding: "0.85rem 1rem",
               }}>
-                {/* Doc name */}
+                {/* Document name — editable */}
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
-                  <ColorDot color={pred.comment_color} size={8} />
-                  <code style={{
-                    fontSize: "13px",
-                    color: "var(--text)",
-                    fontFamily: "var(--font-mono)",
-                    fontWeight: "500",
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  }}>
-                    {docName(pred)}
-                  </code>
+                  <ColorDot color={pred.comment_color} size={9} />
+                  {isEditingName ? (
+                    <input
+                      autoFocus
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                      onBlur={() => commitRename(pred)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.currentTarget.blur(); }
+                        if (e.key === "Escape") { setEditingName(null); }
+                      }}
+                      placeholder={fallbackDocName(pred)}
+                      disabled={renameMutation.isPending}
+                      style={{
+                        background: "var(--bg-surface)",
+                        color: "#E8F0FF",
+                        border: "1px solid var(--accent)",
+                        borderRadius: "4px",
+                        padding: "0.25rem 0.5rem",
+                        fontSize: "14px",
+                        fontFamily: "var(--font-mono)",
+                        width: "100%",
+                        outline: "none",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        display: "flex", alignItems: "center", gap: "0.35rem",
+                        cursor: canEdit ? "pointer" : "default",
+                        minWidth: 0,
+                      }}
+                      onClick={() => {
+                        if (!canEdit) return;
+                        setNameDraft(pred.document_name ?? "");
+                        setEditingName(pred.id);
+                      }}
+                      title={canEdit ? "Click to rename" : undefined}
+                    >
+                      <span style={{
+                        fontSize: "14px",
+                        color: pred.document_name ? "#E8F0FF" : "var(--text)",
+                        fontFamily: pred.document_name ? "var(--font-body)" : "var(--font-mono)",
+                        fontWeight: pred.document_name ? 500 : 400,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
+                        {displayName(pred)}
+                      </span>
+                      {canEdit && (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7A8DAE" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Label — editable for admin/reviewer */}
+                {/* Label */}
                 <div>
                   {canEdit && editingLabel === pred.id ? (
                     <select
@@ -649,7 +723,7 @@ export default function DocumentsPage() {
                       className="select"
                       defaultValue={pred.label}
                       disabled={relabelMutation.isPending}
-                      style={{ fontSize: "13px", padding: "0.2rem 0.5rem" }}
+                      style={{ fontSize: "13px", padding: "0.25rem 0.5rem" }}
                       onChange={(e) => relabelMutation.mutate({ pid: pred.id, label: e.target.value })}
                       onBlur={() => setEditingLabel(null)}
                     >
@@ -665,7 +739,7 @@ export default function DocumentsPage() {
                     >
                       <LabelBadge label={pred.label} />
                       {canEdit && (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2.5" style={{ flexShrink: 0, opacity: 0.6 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7A8DAE" strokeWidth="2.5" style={{ flexShrink: 0 }}>
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                         </svg>
@@ -674,39 +748,38 @@ export default function DocumentsPage() {
                   )}
                 </div>
 
-                {/* Confidence */}
                 <ConfidencePill value={pred.top1_confidence} />
-
-                {/* Latency */}
                 <LatencyPill ms={pred.latency_ms} />
 
-                {/* Date */}
-                <span style={{ fontSize: "13px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                <span style={{ fontSize: "13px", color: "#C8D4EA", whiteSpace: "nowrap" }}>
                   {formatDate(pred.created_at)}
                 </span>
 
-                {/* Actions */}
-                <div style={{ display: "flex", gap: "0.2rem", alignItems: "center" }}>
-                  {/* View */}
+                {/* Actions — bigger, brighter, with hover */}
+                <div style={{ display: "flex", gap: "0.35rem", alignItems: "center", justifyContent: "flex-end" }}>
                   <button
                     title="View document"
                     onClick={() => setViewingPred(pred)}
-                    style={{
-                      background: "none", border: "none", cursor: "pointer",
-                      color: "var(--text-dim)", padding: "0.3rem", borderRadius: "4px",
-                      display: "flex", alignItems: "center",
-                      transition: "color 0.12s",
+                    style={{ ...actionBtnBase, color: "#E8F0FF" }}
+                    onMouseEnter={(e) => {
+                      const el = e.currentTarget as HTMLElement;
+                      el.style.background = "var(--accent-glow)";
+                      el.style.borderColor = "var(--accent)";
+                      el.style.color = "var(--accent)";
                     }}
-                    onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.color = "var(--accent)"}
-                    onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.color = "var(--text-dim)"}
+                    onMouseLeave={(e) => {
+                      const el = e.currentTarget as HTMLElement;
+                      el.style.background = "var(--bg-raised)";
+                      el.style.borderColor = "var(--border)";
+                      el.style.color = "#E8F0FF";
+                    }}
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                       <circle cx="12" cy="12" r="3"/>
                     </svg>
                   </button>
 
-                  {/* Comment */}
                   {canEdit && (
                     <button
                       title={pred.comment ? "Edit note" : "Add note"}
@@ -715,24 +788,29 @@ export default function DocumentsPage() {
                         setEditingColor(null);
                       }}
                       style={{
-                        background: "none", border: "none", cursor: "pointer",
-                        color: pred.comment ? "var(--accent-warm)" : "var(--text-dim)",
-                        padding: "0.3rem", borderRadius: "4px",
-                        display: "flex", alignItems: "center",
-                        transition: "color 0.12s",
+                        ...actionBtnBase,
+                        color: pred.comment ? "var(--accent-warm)" : "#E8F0FF",
+                        borderColor: pred.comment ? "rgba(245,158,11,0.4)" : "var(--border)",
                       }}
-                      onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.color = "var(--accent-warm)"}
+                      onMouseEnter={(e) => {
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.background = "rgba(245,158,11,0.1)";
+                        el.style.borderColor = "var(--accent-warm)";
+                        el.style.color = "var(--accent-warm)";
+                      }}
                       onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLElement).style.color = pred.comment ? "var(--accent-warm)" : "var(--text-dim)";
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.background = "var(--bg-raised)";
+                        el.style.borderColor = pred.comment ? "rgba(245,158,11,0.4)" : "var(--border)";
+                        el.style.color = pred.comment ? "var(--accent-warm)" : "#E8F0FF";
                       }}
                     >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                       </svg>
                     </button>
                   )}
 
-                  {/* Card color */}
                   {canEdit && (
                     <button
                       title="Set card color"
@@ -741,20 +819,22 @@ export default function DocumentsPage() {
                         setEditingComment(null);
                       }}
                       style={{
-                        background: "none", border: "none", cursor: "pointer",
-                        color: pred.comment_color ? COMMENT_COLORS.find(c => c.value === pred.comment_color)?.hex ?? "var(--text-dim)" : "var(--text-dim)",
-                        padding: "0.3rem", borderRadius: "4px",
-                        display: "flex", alignItems: "center",
-                        transition: "color 0.12s",
+                        ...actionBtnBase,
+                        color: pred.comment_color ? COMMENT_COLORS.find(c => c.value === pred.comment_color)?.hex ?? "#E8F0FF" : "#E8F0FF",
+                        borderColor: pred.comment_color ? `${COMMENT_COLORS.find(c => c.value === pred.comment_color)?.hex}60` : "var(--border)",
                       }}
-                      onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.color = "var(--accent)"}
+                      onMouseEnter={(e) => {
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.background = "var(--accent-glow)";
+                        el.style.borderColor = "var(--accent)";
+                      }}
                       onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLElement).style.color = pred.comment_color
-                          ? COMMENT_COLORS.find(c => c.value === pred.comment_color)?.hex ?? "var(--text-dim)"
-                          : "var(--text-dim)";
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.background = "var(--bg-raised)";
+                        el.style.borderColor = pred.comment_color ? `${COMMENT_COLORS.find(c => c.value === pred.comment_color)?.hex}60` : "var(--border)";
                       }}
                     >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1">
                         <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
                         <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
                         <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
@@ -766,7 +846,6 @@ export default function DocumentsPage() {
                 </div>
               </div>
 
-              {/* Card color picker (inline) */}
               {canEdit && editingColor === pred.id && (
                 <CardColorPicker
                   prediction={pred}
@@ -776,7 +855,6 @@ export default function DocumentsPage() {
                 />
               )}
 
-              {/* Comment display */}
               {pred.comment && editingComment !== pred.id && (
                 <div style={{
                   margin: "0 1rem 0.75rem",
@@ -787,13 +865,12 @@ export default function DocumentsPage() {
                   display: "flex", alignItems: "flex-start", gap: "0.5rem",
                 }}>
                   <ColorDot color={pred.comment_color} />
-                  <span style={{ fontSize: "14px", color: "var(--text)", lineHeight: 1.5 }}>
+                  <span style={{ fontSize: "14px", color: "#E8F0FF", lineHeight: 1.5 }}>
                     {pred.comment}
                   </span>
                 </div>
               )}
 
-              {/* Comment editor */}
               {canEdit && editingComment === pred.id && (
                 <div style={{ margin: "0 1rem 0.75rem" }}>
                   <CommentEditor
@@ -809,32 +886,69 @@ export default function DocumentsPage() {
         })}
       </div>
 
-      {/* Bottom pagination — only shown when there are results */}
+      {/* Bottom pagination — with rows-per-page selector */}
       {(predictions?.length ?? 0) > 0 && (
-        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "0.5rem", marginTop: "1.25rem" }}>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setPage((p) => p - 1)}
-            disabled={!hasPrev}
-          >
-            ← Prev
-          </button>
-          <span style={{
-            fontSize: "14px",
-            fontFamily: "var(--font-mono)",
-            color: "var(--text-muted)",
-            minWidth: "64px",
-            textAlign: "center",
-          }}>
-            Page {page}
-          </span>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setPage((p) => p + 1)}
-            disabled={!hasNext}
-          >
-            Next →
-          </button>
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginTop: "1.25rem",
+          flexWrap: "wrap",
+          gap: "0.75rem",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <label style={{ fontSize: "13px", color: "#C8D4EA", whiteSpace: "nowrap" }}>Rows per page:</label>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={pageSize}
+              onChange={(e) => {
+                const v = Math.max(1, Math.min(100, Number(e.target.value) || 10));
+                setPageSize(v);
+                setPage(1);
+              }}
+              style={{
+                width: "60px",
+                background: "var(--bg-surface)",
+                color: "#E8F0FF",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                padding: "0.3rem 0.5rem",
+                fontSize: "14px",
+                fontFamily: "var(--font-mono)",
+                textAlign: "center",
+                outline: "none",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setPage((p) => p - 1)}
+              disabled={!hasPrev}
+            >
+              ← Prev
+            </button>
+            <span style={{
+              fontSize: "14px",
+              fontFamily: "var(--font-mono)",
+              color: "#E8F0FF",
+              minWidth: "64px",
+              textAlign: "center",
+              fontWeight: 500,
+            }}>
+              Page {page}
+            </span>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!hasNext}
+            >
+              Next →
+            </button>
+          </div>
         </div>
       )}
     </Layout>

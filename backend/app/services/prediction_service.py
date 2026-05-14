@@ -125,6 +125,41 @@ class PredictionService(IPredictionService):
         logger.info("prediction.comment_added", actor=actor.id, prediction_id=prediction_id)
         return updated
 
+    async def rename_document(
+        self,
+        actor: UserOut,
+        prediction_id: str,
+        document_name: str | None,
+    ) -> PredictionOut:
+        existing = await self._repo.get(prediction_id)
+        old_name = existing.document_name
+        cleaned = document_name.strip() if document_name else None
+        if not cleaned:
+            cleaned = None
+        updated = await self._repo.update_name(prediction_id, cleaned)
+
+        await self._audit.record(
+            actor_id=actor.id,
+            action="rename_document",
+            target=prediction_id,
+            metadata={
+                "from": old_name,
+                "to": cleaned,
+                "document_id": existing.document_id,
+            },
+        )
+
+        await _cache_clear(f"batches:{existing.batch_id}")
+        await _cache_clear(_RECENT_CACHE_KEY)
+
+        logger.info(
+            "prediction.renamed",
+            actor=actor.id,
+            prediction_id=prediction_id,
+            new_name=cleaned,
+        )
+        return updated
+
     async def relabel(
         self, actor: UserOut, prediction_id: str, new_label: PredictionLabel
     ) -> PredictionOut:

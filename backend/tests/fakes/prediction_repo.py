@@ -83,3 +83,11 @@ class FakePredictionRepo(IPredictionRepository):
         updated = prediction.model_copy(update={"comment": comment, "comment_color": comment_color})
         self._store[prediction_id] = updated
         return updated
+
+    async def update_name(
+        self, prediction_id: str, document_name: str | None
+    ) -> PredictionOut:
+        prediction = await self.get(prediction_id)
+        updated = prediction.model_copy(update={"document_name": document_name})
+        self._store[prediction_id] = updated
+        return updated

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.api.deps import (
@@ -31,6 +32,10 @@ class _RelabelRequest(BaseModel):
 class _CommentRequest(BaseModel):
     comment: str | None = None
     comment_color: str | None = None
+
+
+class _RenameRequest(BaseModel):
+    document_name: str | None = None
 
 
 @router.get(
@@ -83,6 +88,60 @@ async def add_comment(
     svc: PredictionService = Depends(_svc),
 ) -> PredictionOut:
     return await svc.add_comment(current_user, pid, body.comment, body.comment_color)
+
+
+@router.patch(
+    "/predictions/{pid}/name",
+    response_model=PredictionOut,
+    dependencies=[Depends(require_role("rename_document"))],
+)
+async def rename_document(
+    pid: str,
+    body: _RenameRequest,
+    current_user: UserOut = Depends(get_current_user),
+    svc: PredictionService = Depends(_svc),
+) -> PredictionOut:
+    return await svc.rename_document(current_user, pid, body.document_name)
+
+
+@router.get(
+    "/predictions/{pid}/overlay",
+    dependencies=[Depends(require_role("read_batch"))],
+)
+async def get_overlay(
+    pid: str,
+    request: Request,
+    svc: PredictionService = Depends(_svc),
+) -> Response:
+    """Proxy the overlay image bytes from MinIO so the browser never needs
+    direct access to the internal MinIO hostname. Returns image bytes inline."""
+    prediction = await svc.get(pid)
+
+    if not prediction.overlay_url:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No overlay generated")
+
+    blob = getattr(request.app.state, "blob", None)
+    if blob is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Blob storage not configured",
+        )
+
+    # overlay_url stored as "overlays/{batch}/{doc}.png" — strip the bucket prefix
+    raw = prediction.overlay_url
+    key = raw.split("/", 1)[-1] if "/" in raw else raw
+    try:
+        data = await blob.get("overlays", key)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Overlay not found: {exc}"
+        ) from exc
+
+    return Response(
+        content=data,
+        media_type="image/png",
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 
 @router.get(

@@ -7,9 +7,12 @@ import type { AuditLogEntry } from "../api/types";
 const PAGE_SIZE = 20;
 
 const ACTION_COLORS: Record<string, string> = {
-  role_change:  "var(--role-admin)",
-  relabel:      "var(--accent-warm)",
-  batch_state:  "var(--accent)",
+  role_change:     "var(--role-admin)",
+  relabel:         "var(--accent-warm)",
+  batch_state:     "var(--accent)",
+  add_comment:     "var(--role-reviewer)",
+  delete_user:     "var(--danger)",
+  rename_document: "var(--role-auditor)",
 };
 
 function ActionChip({ action }: { action: string }) {
@@ -18,19 +21,90 @@ function ActionChip({ action }: { action: string }) {
     <span
       style={{
         display: "inline-block",
-        padding: "0.15rem 0.5rem",
-        borderRadius: "4px",
+        padding: "0.2rem 0.55rem",
+        borderRadius: "5px",
         fontSize: "13px",
         fontFamily: "var(--font-mono)",
-        fontWeight: "500",
+        fontWeight: 600,
         letterSpacing: "0.04em",
         color,
-        background: `${color}18`,
-        border: `1px solid ${color}28`,
+        background: `${color}1a`,
+        border: `1px solid ${color}30`,
       }}
     >
       {action.replace(/_/g, " ")}
     </span>
+  );
+}
+
+function ActorCell({ entry }: { entry: AuditLogEntry }) {
+  if (entry.actor_id === "system" || !entry.actor_id) {
+    return (
+      <span style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: "14px" }}>
+        system
+      </span>
+    );
+  }
+  if (entry.actor_email) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div
+          style={{
+            width: "24px", height: "24px",
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, var(--accent), #818CF8)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: "11px",
+            color: "#06080F",
+            flexShrink: 0,
+          }}
+        >
+          {entry.actor_email[0].toUpperCase()}
+        </div>
+        <span style={{ fontSize: "14px", color: "#E8F0FF", fontWeight: 500 }}>
+          {entry.actor_email}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <code style={{ fontSize: "13px", color: "#C8D4EA", fontFamily: "var(--font-mono)" }}>
+      {entry.actor_id.slice(0, 8)}…
+    </code>
+  );
+}
+
+function MetadataCell({ metadata }: { metadata: Record<string, unknown> | null }) {
+  if (!metadata) {
+    return <span style={{ color: "var(--text-dim)" }}>—</span>;
+  }
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+      {Object.entries(metadata).map(([k, v]) => (
+        <span
+          key={k}
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "12px",
+            padding: "0.15rem 0.45rem",
+            borderRadius: "4px",
+            background: "var(--bg-raised)",
+            border: "1px solid var(--border-subtle)",
+            color: "#E8F0FF",
+            whiteSpace: "nowrap",
+            maxWidth: "260px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+          title={`${k}: ${String(v)}`}
+        >
+          <span style={{ color: "#7A8DAE" }}>{k}:</span>{" "}
+          <span style={{ color: "#E8F0FF", fontWeight: 500 }}>{String(v)}</span>
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -65,40 +139,29 @@ export default function AuditPage() {
 
   const pagination = (
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-      <button
-        className="btn btn-ghost btn-sm"
-        onClick={() => setPage((p) => p - 1)}
-        disabled={!hasPrev}
-      >
+      <button className="btn btn-ghost btn-sm" onClick={() => setPage((p) => p - 1)} disabled={!hasPrev}>
         ← Prev
       </button>
       <span
         style={{
           fontSize: "14px",
           fontFamily: "var(--font-mono)",
-          color: "var(--text-muted)",
-          minWidth: "60px",
+          color: "#E8F0FF",
+          minWidth: "64px",
           textAlign: "center",
+          fontWeight: 500,
         }}
       >
         Page {page}
       </span>
-      <button
-        className="btn btn-ghost btn-sm"
-        onClick={() => setPage((p) => p + 1)}
-        disabled={!hasNext}
-      >
+      <button className="btn btn-ghost btn-sm" onClick={() => setPage((p) => p + 1)} disabled={!hasNext}>
         Next →
       </button>
     </div>
   );
 
   return (
-    <Layout
-      title="Audit Log"
-      subtitle="All recorded actions in the system"
-      actions={pagination}
-    >
+    <Layout title="Audit Log" subtitle="All recorded actions in the system">
       {isError && (
         <div
           style={{
@@ -115,23 +178,23 @@ export default function AuditPage() {
       )}
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <table className="data-table">
+        <table className="data-table audit-table" style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th>Timestamp</th>
-              <th>Actor</th>
-              <th>Action</th>
-              <th>Target</th>
-              <th>Metadata</th>
+              <th style={auditHeaderStyle}>Timestamp</th>
+              <th style={auditHeaderStyle}>Actor</th>
+              <th style={auditHeaderStyle}>Action</th>
+              <th style={auditHeaderStyle}>Target</th>
+              <th style={auditHeaderStyle}>Metadata</th>
             </tr>
           </thead>
           <tbody>
             {isLoading &&
               Array.from({ length: 8 }).map((_, i) => (
-                <tr key={i}>
+                <tr key={i} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                   {Array.from({ length: 5 }).map((_, j) => (
-                    <td key={j}>
-                      <div className="skeleton" style={{ height: "14px", width: j === 4 ? "120px" : "90px" }} />
+                    <td key={j} style={{ padding: "0.875rem 1.1rem" }}>
+                      <div className="skeleton" style={{ height: "14px", width: j === 4 ? "180px" : "100px" }} />
                     </td>
                   ))}
                 </tr>
@@ -147,51 +210,39 @@ export default function AuditPage() {
               <tr
                 key={entry.id}
                 className="animate-fade-up"
-                style={{ animationDelay: `${idx * 25}ms` }}
+                style={{
+                  animationDelay: `${idx * 25}ms`,
+                  borderBottom: "1px solid var(--border-subtle)",
+                }}
               >
-                <td>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                <td style={auditCellStyle}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "#C8D4EA", whiteSpace: "nowrap" }}>
                     {formatTime(entry.timestamp)}
                   </span>
                 </td>
-                <td>
-                  <code className="mono" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-                    {entry.actor_id === "system" ? (
-                      <span style={{ color: "var(--text-dim)" }}>system</span>
-                    ) : (
-                      entry.actor_id.slice(0, 8) + "…"
-                    )}
-                  </code>
+                <td style={auditCellStyle}>
+                  <ActorCell entry={entry} />
                 </td>
-                <td>
+                <td style={auditCellStyle}>
                   <ActionChip action={entry.action} />
                 </td>
-                <td>
-                  <code className="mono" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                <td style={auditCellStyle}>
+                  <code className="mono" style={{ fontSize: "13px", color: "#E8F0FF" }}>
                     {entry.target.slice(0, 12)}…
                   </code>
                 </td>
-                <td>
-                  {entry.metadata ? (
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-dim)" }}>
-                      {Object.entries(entry.metadata)
-                        .map(([k, v]) => `${k}: ${String(v)}`)
-                        .join(" · ")}
-                    </span>
-                  ) : (
-                    <span style={{ color: "var(--text-dim)" }}>—</span>
-                  )}
+                <td style={auditCellStyle}>
+                  <MetadataCell metadata={entry.metadata} />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {/* Bottom pagination */}
         {(data?.length ?? 0) > 0 && (
           <div
             style={{
-              padding: "0.75rem 1rem",
+              padding: "0.85rem 1.1rem",
               borderTop: "1px solid var(--border-subtle)",
               display: "flex",
               justifyContent: "flex-end",
@@ -204,3 +255,22 @@ export default function AuditPage() {
     </Layout>
   );
 }
+
+const auditHeaderStyle: React.CSSProperties = {
+  padding: "0.85rem 1.1rem",
+  textAlign: "left",
+  fontFamily: "var(--font-display)",
+  fontSize: "13px",
+  fontWeight: 600,
+  letterSpacing: "0.04em",
+  color: "#E8F0FF",
+  borderBottom: "1px solid var(--border)",
+  whiteSpace: "nowrap",
+  background: "var(--bg-raised)",
+};
+
+const auditCellStyle: React.CSSProperties = {
+  padding: "0.9rem 1.1rem",
+  color: "#E8F0FF",
+  verticalAlign: "middle",
+};

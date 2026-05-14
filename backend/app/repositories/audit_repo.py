@@ -36,9 +36,13 @@ class AuditRepository(IAuditRepository):
     async def list(self, page: int = 1, limit: int = 50) -> list[AuditLogEntry]:
         offset = max(page - 1, 0) * limit
         result = await self._session.execute(
-            select(models.AuditLog)
+            select(models.AuditLog, models.User.email)
+            .outerjoin(models.User, models.AuditLog.actor_id == models.User.id)
             .order_by(models.AuditLog.timestamp.desc())
             .offset(offset)
             .limit(limit)
         )
-        return [audit_log_to_domain(audit_log) for audit_log in result.scalars()]
+        return [
+            audit_log_to_domain(audit_log, actor_email=email)
+            for audit_log, email in result.all()
+        ]

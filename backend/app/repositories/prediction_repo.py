@@ -104,3 +104,11 @@ class PredictionRepository(IPredictionRepository):
         await self._session.flush()
         await self._session.refresh(prediction)
         return prediction_to_domain(prediction)
+
+    async def update_name(self, prediction_id: str, document_name: str | None) -> PredictionOut:
+        prediction = await self._session.get(models.Prediction, parse_uuid(prediction_id))
+        prediction = require_row(prediction, f"prediction not found: {prediction_id}")
+        prediction.document_name = document_name
+        await self._session.flush()
+        await self._session.refresh(prediction)
+        return prediction_to_domain(prediction)

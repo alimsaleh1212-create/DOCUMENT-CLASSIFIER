@@ -93,12 +93,14 @@ class PredictionOut(BaseModel):
     latency_ms: float | None = None
     comment: str | None = None
     comment_color: str | None = None
+    document_name: str | None = None
 
 
 class AuditLogEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     actor_id: str
+    actor_email: str | None = None
     action: str
     target: str
     metadata: dict[str, Any] | None = None

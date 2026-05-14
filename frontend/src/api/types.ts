@@ -67,6 +67,7 @@ export interface PredictionOut {
   latency_ms: number | null;
   comment: string | null;
   comment_color: string | null;
+  document_name: string | null;
 }
 
 export interface GoldenFile {
@@ -86,6 +87,7 @@ export const COMMENT_COLORS = [
 export interface AuditLogEntry {
   id: string;
   actor_id: string;
+  actor_email: string | null;
   action: string;
   target: string;
   metadata: Record<string, unknown> | null;

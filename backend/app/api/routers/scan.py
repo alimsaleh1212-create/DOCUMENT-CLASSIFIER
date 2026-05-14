@@ -19,12 +19,24 @@ from pydantic import BaseModel
 
 from app.api.deps import require_role
 from app.config import Settings
+from app.infra.vault import VaultClient
 
 router = APIRouter(tags=["scan"])
 logger = structlog.get_logger()
 
 _GOLDEN_DIR = Path(__file__).resolve().parents[3] / "app" / "classifier" / "eval" / "golden_images"
 _SETTINGS = Settings()
+
+# SFTP creds resolved lazily from Vault on first use, then cached.
+_SFTP_CREDS: tuple[str, str] | None = None
+
+
+def _get_sftp_creds() -> tuple[str, str]:
+    global _SFTP_CREDS
+    if _SFTP_CREDS is None:
+        vault = VaultClient(_SETTINGS.vault_addr, _SETTINGS.vault_token)
+        _SFTP_CREDS = vault.get_sftp_credentials()
+    return _SFTP_CREDS
 
 
 class GoldenFile(BaseModel):
@@ -105,8 +117,7 @@ def _upload_file(local_path: str, remote_dir: str, remote_path: str) -> None:
     """Synchronous SFTP upload — runs in a thread pool."""
     sftp_host = _SETTINGS.sftp_host
     sftp_port = _SETTINGS.sftp_container_port
-    sftp_user = getattr(_SETTINGS, "sftp_user", "docscanner")
-    sftp_password = getattr(_SETTINGS, "sftp_password", "scan123")
+    sftp_user, sftp_password = _get_sftp_creds()
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())

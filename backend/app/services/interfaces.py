@@ -70,6 +70,14 @@ class IPredictionService(ABC):
         comment_color: str | None,
     ) -> PredictionOut: ...
 
+    @abstractmethod
+    async def rename_document(
+        self,
+        actor: UserOut,
+        prediction_id: str,
+        document_name: str | None,
+    ) -> PredictionOut: ...
+
 
 class IAuditService(ABC):
     @abstractmethod
