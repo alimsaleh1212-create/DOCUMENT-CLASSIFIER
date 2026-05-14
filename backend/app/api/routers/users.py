@@ -52,3 +52,16 @@ async def toggle_role(
     svc: UserService = Depends(_svc),
 ) -> UserOut:
     return await svc.toggle_role(current_user, uid, body.new_role)
+
+
+@router.delete(
+    "/users/{uid}",
+    status_code=204,
+    dependencies=[Depends(require_role("delete_user"))],
+)
+async def delete_user(
+    uid: str,
+    current_user: UserOut = Depends(get_current_user),
+    svc: UserService = Depends(_svc),
+) -> None:
+    await svc.delete_user(current_user, uid)

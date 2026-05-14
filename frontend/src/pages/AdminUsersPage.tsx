@@ -10,6 +10,7 @@ const ROLES: Role[] = ["admin", "reviewer", "auditor"];
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<UserOut | null>(null);
 
   const { data: users, isLoading, isError } = useQuery<UserOut[]>({
     queryKey: ["users"],
@@ -18,6 +19,24 @@ export default function AdminUsersPage() {
       return res.data;
     },
     staleTime: 30_000,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (uid: string) => {
+      await client.delete(`/users/${uid}`);
+    },
+    onSuccess: (_, uid) => {
+      queryClient.setQueryData<UserOut[]>(["users"], (old) =>
+        old?.filter((u) => u.id !== uid) ?? []
+      );
+      setToast({ msg: "User deleted.", type: "success" });
+      setConfirmDelete(null);
+    },
+    onError: (err: { response?: { data?: { detail?: string } } }) => {
+      const detail = err?.response?.data?.detail ?? "Failed to delete user.";
+      setToast({ msg: detail, type: "error" });
+      setConfirmDelete(null);
+    },
   });
 
   const roleMutation = useMutation({
@@ -63,6 +82,43 @@ export default function AdminUsersPage() {
         <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />
       )}
 
+      {/* Delete confirm dialog */}
+      {confirmDelete && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 200,
+          background: "rgba(6,8,15,0.82)", backdropFilter: "blur(8px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem",
+        }}>
+          <div className="card animate-fade-up" style={{ maxWidth: "400px", padding: "1.5rem" }}>
+            <h3 style={{ margin: "0 0 0.5rem", fontSize: "17px", fontFamily: "var(--font-display)", color: "#E8F0FF" }}>
+              Delete user?
+            </h3>
+            <p style={{ fontSize: "14px", color: "var(--text-muted)", margin: "0 0 1.25rem" }}>
+              This will permanently delete <strong style={{ color: "var(--text)" }}>{confirmDelete.email}</strong> and
+              remove all their access. This action cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: "0.625rem", justifyContent: "flex-end" }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-sm"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(confirmDelete.id)}
+                style={{
+                  background: "var(--danger)",
+                  color: "#fff",
+                  fontWeight: "600",
+                  opacity: deleteMutation.isPending ? 0.7 : 1,
+                }}
+              >
+                {deleteMutation.isPending ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isError && (
         <div
           style={{
@@ -87,13 +143,14 @@ export default function AdminUsersPage() {
               <th>Status</th>
               <th>Joined</th>
               <th>Change role</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {isLoading &&
               Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i}>
-                  {Array.from({ length: 5 }).map((_, j) => (
+                  {Array.from({ length: 6 }).map((_, j) => (
                     <td key={j}>
                       <div
                         className="skeleton"
@@ -105,7 +162,7 @@ export default function AdminUsersPage() {
               ))}
             {!isLoading && users?.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2.5rem" }}>
+                <td colSpan={6} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2.5rem" }}>
                   No users found.
                 </td>
               </tr>
@@ -174,6 +231,27 @@ export default function AdminUsersPage() {
                       </option>
                     ))}
                   </select>
+                </td>
+                <td>
+                  <button
+                    title="Delete user"
+                    onClick={() => setConfirmDelete(user)}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      color: "var(--text-dim)", padding: "0.25rem", borderRadius: "4px",
+                      display: "flex", alignItems: "center",
+                      transition: "color 0.12s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.color = "var(--danger)"}
+                    onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.color = "var(--text-dim)"}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                      <path d="M10 11v6M14 11v6"/>
+                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                    </svg>
+                  </button>
                 </td>
               </tr>
             ))}

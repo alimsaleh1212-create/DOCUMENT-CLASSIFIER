@@ -52,8 +52,42 @@ class FakePredictionRepo(IPredictionRepository):
         except KeyError as exc:
             raise KeyError(f"Prediction {prediction_id} not found") from exc
 
+    async def list_paginated(
+        self,
+        page: int = 1,
+        limit: int = 10,
+        label_filter: PredictionLabel | None = None,
+        color_filter: str | None = None,
+    ) -> list[PredictionOut]:
+        items = sorted(self._store.values(), key=lambda p: p.created_at or "", reverse=True)
+        if label_filter is not None:
+            items = [p for p in items if p.label == label_filter]
+        if color_filter is not None:
+            items = [p for p in items if p.comment_color == color_filter]
+        start = (page - 1) * limit
+        return items[start : start + limit]
+
     async def update_label(self, prediction_id: str, new_label: PredictionLabel) -> PredictionOut:
         prediction = await self.get(prediction_id)
         updated = prediction.model_copy(update={"label": new_label})
+        self._store[prediction_id] = updated
+        return updated
+
+    async def update_comment(
+        self,
+        prediction_id: str,
+        comment: str | None,
+        comment_color: str | None,
+    ) -> PredictionOut:
+        prediction = await self.get(prediction_id)
+        updated = prediction.model_copy(update={"comment": comment, "comment_color": comment_color})
+        self._store[prediction_id] = updated
+        return updated
+
+    async def update_name(
+        self, prediction_id: str, document_name: str | None
+    ) -> PredictionOut:
+        prediction = await self.get(prediction_id)
+        updated = prediction.model_copy(update={"document_name": document_name})
         self._store[prediction_id] = updated
         return updated

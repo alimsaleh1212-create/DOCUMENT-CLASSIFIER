@@ -54,6 +54,12 @@ class UserRepository(IUserRepository):
         )
         return int(result.scalar_one())
 
+    async def delete(self, user_id: str) -> None:
+        user = await self._session.get(models.User, parse_uuid(user_id))
+        user = require_row(user, f"user not found: {user_id}")
+        await self._session.delete(user)
+        await self._session.flush()
+
     async def get_hashed_password(self, user_id: str) -> str:
         """Retrieve the hashed password for a user by email query."""
         result = await self._session.execute(

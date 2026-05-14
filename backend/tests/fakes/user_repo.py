@@ -73,3 +73,9 @@ class FakeUserRepo(IUserRepository):
 
     async def count_admins(self) -> int:
         return sum(1 for u in self._store.values() if u.role == Role.admin)
+
+    async def delete(self, user_id: str) -> None:
+        user = await self.get(user_id)
+        self._store.pop(user_id)
+        self._by_email.pop(user.email, None)
+        self._hashed_passwords.pop(user_id, None)

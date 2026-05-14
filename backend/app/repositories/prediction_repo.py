@@ -36,6 +36,7 @@ class PredictionRepository(IPredictionRepository):
                 top5=prediction_top5_to_json(prediction.top5),
                 overlay_url=prediction.overlay_url,
                 model_version=prediction.model_version,
+                latency_ms=prediction.latency_ms,
             )
             .on_conflict_do_update(
                 constraint="uq_predictions_batch_document",
@@ -45,6 +46,7 @@ class PredictionRepository(IPredictionRepository):
                     "top5": prediction_top5_to_json(prediction.top5),
                     "overlay_url": prediction.overlay_url,
                     "model_version": prediction.model_version,
+                    "latency_ms": prediction.latency_ms,
                 },
             )
             .returning(models.Prediction)
@@ -59,6 +61,22 @@ class PredictionRepository(IPredictionRepository):
         )
         return [prediction_to_domain(prediction) for prediction in result.scalars()]
 
+    async def list_paginated(
+        self,
+        page: int = 1,
+        limit: int = 10,
+        label_filter: PredictionLabel | None = None,
+        color_filter: str | None = None,
+    ) -> list[PredictionOut]:
+        stmt = select(models.Prediction).order_by(models.Prediction.created_at.desc())
+        if label_filter is not None:
+            stmt = stmt.where(models.Prediction.label == label_filter.value)
+        if color_filter is not None:
+            stmt = stmt.where(models.Prediction.comment_color == color_filter)
+        stmt = stmt.offset((page - 1) * limit).limit(limit)
+        result = await self._session.execute(stmt)
+        return [prediction_to_domain(p) for p in result.scalars()]
+
     async def get(self, prediction_id: str) -> PredictionOut:
         prediction = await self._session.get(models.Prediction, parse_uuid(prediction_id))
         return prediction_to_domain(
@@ -69,6 +87,28 @@ class PredictionRepository(IPredictionRepository):
         prediction = await self._session.get(models.Prediction, parse_uuid(prediction_id))
         prediction = require_row(prediction, f"prediction not found: {prediction_id}")
         prediction.label = new_label.value
+        await self._session.flush()
+        await self._session.refresh(prediction)
+        return prediction_to_domain(prediction)
+
+    async def update_comment(
+        self,
+        prediction_id: str,
+        comment: str | None,
+        comment_color: str | None,
+    ) -> PredictionOut:
+        prediction = await self._session.get(models.Prediction, parse_uuid(prediction_id))
+        prediction = require_row(prediction, f"prediction not found: {prediction_id}")
+        prediction.comment = comment
+        prediction.comment_color = comment_color
+        await self._session.flush()
+        await self._session.refresh(prediction)
+        return prediction_to_domain(prediction)
+
+    async def update_name(self, prediction_id: str, document_name: str | None) -> PredictionOut:
+        prediction = await self._session.get(models.Prediction, parse_uuid(prediction_id))
+        prediction = require_row(prediction, f"prediction not found: {prediction_id}")
+        prediction.document_name = document_name
         await self._session.flush()
         await self._session.refresh(prediction)
         return prediction_to_domain(prediction)

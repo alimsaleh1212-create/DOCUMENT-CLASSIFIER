@@ -36,6 +36,9 @@ class IUserRepository(ABC):
     @abstractmethod
     async def count_admins(self) -> int: ...
 
+    @abstractmethod
+    async def delete(self, user_id: str) -> None: ...
+
 
 class IBatchRepository(ABC):
     @abstractmethod
@@ -66,11 +69,33 @@ class IPredictionRepository(ABC):
     async def list_recent(self, limit: int = 50) -> list[PredictionOut]: ...
 
     @abstractmethod
+    async def list_paginated(
+        self,
+        page: int = 1,
+        limit: int = 10,
+        label_filter: PredictionLabel | None = None,
+        color_filter: str | None = None,
+    ) -> list[PredictionOut]: ...
+
+    @abstractmethod
     async def get(self, prediction_id: str) -> PredictionOut: ...
 
     @abstractmethod
     async def update_label(
         self, prediction_id: str, new_label: PredictionLabel
+    ) -> PredictionOut: ...
+
+    @abstractmethod
+    async def update_comment(
+        self,
+        prediction_id: str,
+        comment: str | None,
+        comment_color: str | None,
+    ) -> PredictionOut: ...
+
+    @abstractmethod
+    async def update_name(
+        self, prediction_id: str, document_name: str | None
     ) -> PredictionOut: ...
 
 

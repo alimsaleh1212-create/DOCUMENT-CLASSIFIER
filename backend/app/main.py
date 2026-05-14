@@ -88,6 +88,23 @@ async def _boot_production(app: FastAPI) -> None:
     app.state.db = session_factory
     app.state.jwt_signing_key = jwt_key
 
+    # Wire MinIO blob so predictions router can generate presigned URLs
+    try:
+        from app.infra.blob import MinioBlob  # noqa: PLC0415
+
+        minio_creds = vault.get_minio_credentials()
+        blob = MinioBlob(
+            endpoint=settings.minio_endpoint,
+            access_key=minio_creds[0],
+            secret_key=minio_creds[1],
+        )
+        await blob.ensure_buckets()
+        app.state.blob = blob
+        logger.info("blob.ready")
+    except Exception as exc:
+        logger.warning("blob.unavailable", error=str(exc))
+        app.state.blob = None
+
     model_path = str(pathlib.Path(__file__).parent / "infra" / "casbin" / "model.conf")
     # casbin_sqlalchemy_adapter uses sync DSN (no +asyncpg)
     sync_dsn = dsn.replace("+asyncpg", "")
@@ -231,13 +248,14 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSON
 
 
 # Routers — mounted after the app is defined so middleware is already registered
-from app.api.routers import audit, auth, batches, predictions, users  # noqa: E402
+from app.api.routers import audit, auth, batches, predictions, scan, users  # noqa: E402
 
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(batches.router)
 app.include_router(predictions.router)
 app.include_router(audit.router)
+app.include_router(scan.router)
 
 
 @app.get("/health", tags=["meta"])

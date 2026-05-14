@@ -63,6 +63,10 @@ def prediction_to_domain(prediction: models.Prediction) -> PredictionOut:
         overlay_url=prediction.overlay_url,
         model_version=prediction.model_version,
         created_at=prediction.created_at,
+        comment=prediction.comment,
+        comment_color=prediction.comment_color,
+        latency_ms=prediction.latency_ms,
+        document_name=prediction.document_name,
     )
 
 
@@ -72,11 +76,14 @@ def prediction_top5_to_json(
     return [(label.value, confidence) for label, confidence in top5]
 
 
-def audit_log_to_domain(audit_log: models.AuditLog) -> AuditLogEntry:
+def audit_log_to_domain(
+    audit_log: models.AuditLog, actor_email: str | None = None
+) -> AuditLogEntry:
     actor_id = "" if audit_log.actor_id is None else str(audit_log.actor_id)
     return AuditLogEntry(
         id=str(audit_log.id),
         actor_id=actor_id,
+        actor_email=actor_email,
         action=audit_log.action,
         target=audit_log.target,
         metadata=audit_log.metadata_,
