@@ -135,7 +135,7 @@ class Predictor:
 
         img = Image.open(io.BytesIO(image_bytes)).convert("L")
         tensor = self._transform(img).unsqueeze(0)
-        
+
         start_time = time.perf_counter()
         with torch.inference_mode():
             output = self._model(tensor)
@@ -148,7 +148,7 @@ class Predictor:
             label = CLASSES[topk_idx[0, i].item()]
             conf = round(topk_conf[0, i].item(), 10)
             results.append((label, conf))
-        
+
         log = structlog.get_logger()
         log.info("predictor.inference_topk", top1_label=results[0][0], top1_conf=results[0][1], latency_ms=latency_ms)
         return results, latency_ms

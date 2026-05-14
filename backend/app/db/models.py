@@ -135,6 +135,9 @@ class Prediction(Base):
     top5: Mapped[list[tuple[str, float]]] = mapped_column(JSONB, nullable=False)
     overlay_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     model_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    comment: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    comment_color: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
@@ -144,7 +147,7 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
     __table_args__ = (
         CheckConstraint(
-            "action IN ('role_change', 'relabel', 'batch_state')",
+            "action IN ('role_change', 'relabel', 'batch_state', 'add_comment', 'delete_user')",
             name="ck_audit_log_action_valid",
         ),
         Index("ix_audit_log_actor_id", "actor_id"),

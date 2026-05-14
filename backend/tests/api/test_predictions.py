@@ -39,12 +39,30 @@ def test_list_recent_no_token_returns_401(client: TestClient) -> None:
     assert r.status_code == 401
 
 
-def test_relabel_high_confidence_returns_422(client: TestClient, admin_token: str) -> None:
+def test_relabel_high_confidence_as_reviewer_returns_422(
+    client: TestClient, reviewer_token: str
+) -> None:
+    """Reviewers cannot relabel documents with confidence >= 0.7."""
     from app.api.deps import get_prediction_repo  # noqa: PLC0415
     from app.main import app  # noqa: PLC0415
 
     pid, p = _seed_prediction(top1=0.95)
-    # FakePredictionRepo.seed() is synchronous — no event loop needed
+    app.dependency_overrides[get_prediction_repo]().seed(p)
+
+    r = client.patch(
+        f"/predictions/{pid}/label",
+        json={"new_label": "letter"},
+        headers=auth_headers(reviewer_token),
+    )
+    assert r.status_code == 422
+
+
+def test_relabel_high_confidence_as_admin_succeeds(client: TestClient, admin_token: str) -> None:
+    """Admins can override any label regardless of confidence."""
+    from app.api.deps import get_prediction_repo  # noqa: PLC0415
+    from app.main import app  # noqa: PLC0415
+
+    pid, p = _seed_prediction(top1=0.95)
     app.dependency_overrides[get_prediction_repo]().seed(p)
 
     r = client.patch(
@@ -52,7 +70,7 @@ def test_relabel_high_confidence_returns_422(client: TestClient, admin_token: st
         json={"new_label": "letter"},
         headers=auth_headers(admin_token),
     )
-    assert r.status_code == 422
+    assert r.status_code == 200
 
 
 def test_relabel_low_confidence_succeeds(client: TestClient, admin_token: str) -> None:

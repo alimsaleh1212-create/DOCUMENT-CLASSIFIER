@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate("/batches", { replace: true });
+      navigate("/documents", { replace: true });
     } catch (err: unknown) {
       if (
         err &&

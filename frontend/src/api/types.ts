@@ -64,7 +64,24 @@ export interface PredictionOut {
   overlay_url: string | null;
   model_version: string;
   created_at: string;
+  latency_ms: number | null;
+  comment: string | null;
+  comment_color: string | null;
 }
+
+export interface GoldenFile {
+  name: string;
+  size_kb: number;
+}
+
+export const COMMENT_COLORS = [
+  { value: "blue",   label: "Blue",   hex: "#3B82F6" },
+  { value: "green",  label: "Green",  hex: "#10B981" },
+  { value: "amber",  label: "Amber",  hex: "#F59E0B" },
+  { value: "red",    label: "Red",    hex: "#EF4444" },
+  { value: "purple", label: "Purple", hex: "#A78BFA" },
+  { value: "cyan",   label: "Cyan",   hex: "#22D3EE" },
+];
 
 export interface AuditLogEntry {
   id: string;

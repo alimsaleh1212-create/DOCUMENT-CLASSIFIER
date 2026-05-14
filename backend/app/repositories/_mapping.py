@@ -63,6 +63,9 @@ def prediction_to_domain(prediction: models.Prediction) -> PredictionOut:
         overlay_url=prediction.overlay_url,
         model_version=prediction.model_version,
         created_at=prediction.created_at,
+        comment=prediction.comment,
+        comment_color=prediction.comment_color,
+        latency_ms=prediction.latency_ms,
     )
 
 

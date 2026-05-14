@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth, getRole } from "../hooks/useAuth";
 import type { Role } from "../api/types";
+import ScanModal from "./ScanModal";
 
 function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
   const { pathname } = useLocation();
@@ -65,6 +67,7 @@ function RolePill({ role }: { role: Role }) {
 export function Navbar() {
   const { logout } = useAuth();
   const role = getRole();
+  const [scanOpen, setScanOpen] = useState(false);
 
   return (
     <header
@@ -116,19 +119,55 @@ export function Navbar() {
       </Link>
 
       <nav style={{ display: "flex", alignItems: "center", gap: "0.25rem", flex: 1 }}>
+        <NavLink to="/documents">Documents</NavLink>
         <NavLink to="/batches">Batches</NavLink>
-        <NavLink to="/predictions/recent">Predictions</NavLink>
         {role === "admin" && <NavLink to="/admin/users">Users</NavLink>}
         {(role === "admin" || role === "auditor") && <NavLink to="/audit">Audit</NavLink>}
         <NavLink to="/me">Profile</NavLink>
       </nav>
 
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        {(role === "admin" || role === "reviewer") && (
+          <button
+            className="btn btn-sm"
+            onClick={() => setScanOpen(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              background: "var(--accent-glow)",
+              color: "var(--accent)",
+              border: "1px solid var(--accent)",
+              padding: "0.3rem 0.75rem",
+              borderRadius: "var(--radius)",
+              fontSize: "14px",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "var(--accent)";
+              (e.currentTarget as HTMLElement).style.color = "#06080F";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "var(--accent-glow)";
+              (e.currentTarget as HTMLElement).style.color = "var(--accent)";
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/>
+              <line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="9"/>
+              <line x1="15" y1="3" x2="15" y2="9"/>
+            </svg>
+            Scan
+          </button>
+        )}
         {role && <RolePill role={role} />}
         <button className="btn btn-ghost btn-sm" onClick={logout}>
           Sign out
         </button>
       </div>
+
+      {scanOpen && <ScanModal onClose={() => setScanOpen(false)} />}
     </header>
   );
 }

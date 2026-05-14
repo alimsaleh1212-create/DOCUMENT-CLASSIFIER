@@ -102,3 +102,30 @@ class UserService(IUserService):
         await _cache_clear(_user_cache_key(target_uid))
         logger.info("role.changed", actor=actor.id, target=target_uid, new_role=new_role)
         return updated
+
+    async def delete_user(self, actor: UserOut, target_uid: str) -> None:
+        if actor.id == target_uid:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cannot delete your own account",
+            )
+
+        if actor.role == Role.admin and await self._repo.count_admins() == 1:
+            target = await self._repo.get(target_uid)
+            if target.role == Role.admin:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot delete the only admin account",
+                )
+
+        await self._repo.delete(target_uid)
+
+        await self._audit.record(
+            actor_id=actor.id,
+            action="delete_user",
+            target=target_uid,
+            metadata=None,
+        )
+
+        await _cache_clear(_user_cache_key(target_uid))
+        logger.info("user.deleted", actor=actor.id, target=target_uid)

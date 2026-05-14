@@ -7,6 +7,7 @@ import MePage from "./pages/MePage";
 import BatchesListPage from "./pages/BatchesListPage";
 import BatchDetailPage from "./pages/BatchDetailPage";
 import PredictionsRecentPage from "./pages/PredictionsRecentPage";
+import DocumentsPage from "./pages/DocumentsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AuditPage from "./pages/AuditPage";
 import NotFoundPage from "./pages/NotFoundPage";
@@ -44,11 +45,12 @@ export default function App() {
 
       {/* Authenticated */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<Navigate to="/batches" replace />} />
+        <Route path="/" element={<Navigate to="/documents" replace />} />
         <Route path="/me" element={<MePage />} />
         <Route path="/batches" element={<BatchesListPage />} />
         <Route path="/batches/:bid" element={<BatchDetailPage />} />
         <Route path="/predictions/recent" element={<PredictionsRecentPage />} />
+        <Route path="/documents" element={<DocumentsPage />} />
 
         {/* Admin only */}
         <Route element={<AdminOnlyRoute />}>

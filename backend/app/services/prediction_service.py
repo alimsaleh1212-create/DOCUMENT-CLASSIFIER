@@ -60,7 +60,7 @@ class PredictionService(IPredictionService):
         saved = await self._repo.create_idempotent(prediction)
 
         await self._audit.record(
-            actor_id=None,
+            actor_id="system",
             action="batch_state",
             target=prediction.batch_id,
             metadata={"document_id": prediction.document_id, "request_id": request_id},
@@ -87,12 +87,53 @@ class PredictionService(IPredictionService):
     async def get(self, prediction_id: str) -> PredictionOut:
         return await self._repo.get(prediction_id)
 
+    async def list_paginated(
+        self,
+        page: int = 1,
+        limit: int = 10,
+        label_filter: PredictionLabel | None = None,
+        color_filter: str | None = None,
+    ) -> list[PredictionOut]:
+        return await self._repo.list_paginated(
+            page=page, limit=limit, label_filter=label_filter, color_filter=color_filter
+        )
+
+    async def add_comment(
+        self,
+        actor: UserOut,
+        prediction_id: str,
+        comment: str | None,
+        comment_color: str | None,
+    ) -> PredictionOut:
+        existing = await self._repo.get(prediction_id)
+        updated = await self._repo.update_comment(prediction_id, comment, comment_color)
+
+        await self._audit.record(
+            actor_id=actor.id,
+            action="add_comment",
+            target=prediction_id,
+            metadata={
+                "comment": comment,
+                "color": comment_color,
+                "document_id": existing.document_id,
+            },
+        )
+
+        await _cache_clear(f"batches:{existing.batch_id}")
+        await _cache_clear(_RECENT_CACHE_KEY)
+
+        logger.info("prediction.comment_added", actor=actor.id, prediction_id=prediction_id)
+        return updated
+
     async def relabel(
         self, actor: UserOut, prediction_id: str, new_label: PredictionLabel
     ) -> PredictionOut:
+        from app.domain.contracts import Role  # noqa: PLC0415
+
         existing = await self._repo.get(prediction_id)
 
-        if existing.top1_confidence >= 0.7:
+        # Admins can override any confidence; reviewers are restricted to low-confidence docs
+        if actor.role != Role.admin and existing.top1_confidence >= 0.7:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
