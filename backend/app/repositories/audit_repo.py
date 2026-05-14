@@ -17,13 +17,13 @@ class AuditRepository(IAuditRepository):
 
     async def insert(
         self,
-        actor_id: str,
+        actor_id: str | None,
         action: str,
         target: str,
         metadata: dict[str, Any] | None = None,
     ) -> AuditLogEntry:
         audit_log = models.AuditLog(
-            actor_id=parse_uuid(actor_id),
+            actor_id=parse_uuid(actor_id) if actor_id is not None else None,
             action=action,
             target=target,
             metadata_=metadata_or_none(metadata),

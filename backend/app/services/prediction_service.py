@@ -60,7 +60,7 @@ class PredictionService(IPredictionService):
         saved = await self._repo.create_idempotent(prediction)
 
         await self._audit.record(
-            actor_id="system",
+            actor_id=None,
             action="batch_state",
             target=prediction.batch_id,
             metadata={"document_id": prediction.document_id, "request_id": request_id},

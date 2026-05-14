@@ -80,7 +80,7 @@ model_version = (
     f"{model_card['backbone']}_{model_card['weights_enum']}_"
     f"{model_card['freeze_policy']}_{model_card['sha256'][:8]}_"
     f"{model_card['trained_at']}"
-)
+)[:50]  # predictions.model_version is VARCHAR(50)
 log.info("model_version", version=model_version)
 
 # ---------------------------------------------------------------------------
@@ -94,12 +94,12 @@ if use_fakes:
     log.info("blob.using_fake")
 else:
     from app.config import Settings as _Settings  # noqa: PLC0415
-    from app.infra.blob import MinioBlob  # noqa: PLC0415
     from app.infra.vault import VaultClient  # noqa: PLC0415
+    from app.infra.worker_blob import WorkerBlob  # noqa: PLC0415
     _s = _Settings()
     _vault = VaultClient(_s.vault_addr, _s.vault_token)
     _ak, _sk = _vault.get_minio_credentials()
-    blob = MinioBlob(endpoint=_s.minio_endpoint, access_key=_ak, secret_key=_sk)
+    blob = WorkerBlob(endpoint=_s.minio_endpoint, access_key=_ak, secret_key=_sk)
     log.info("blob.using_real_minio")
 
 if use_fakes:
@@ -127,6 +127,12 @@ except Exception as e:
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 redis_conn = redis.from_url(REDIS_URL)
 QUEUE_NAME = "classify"
+
+# torch.set_num_threads(1) prevents BLAS thread deadlocks when RQ forks a
+# work-horse process — forking a multi-threaded PyTorch process causes
+# the child to hang waiting on locks held by threads that no longer exist.
+import torch as _torch
+_torch.set_num_threads(1)
 
 worker = Worker([QUEUE_NAME], connection=redis_conn)
 log.info("worker.starting", queue=QUEUE_NAME, fakes=use_fakes)

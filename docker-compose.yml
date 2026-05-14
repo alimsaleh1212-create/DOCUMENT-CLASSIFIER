@@ -87,6 +87,9 @@ services:
       - "${SFTP_PORT:-2222}:22"
     volumes:
       - sftpdata:/home/docscanner/incoming
+      # Init script fixes the incoming dir ownership; volume mount points
+      # inherit root ownership by default which blocks docscanner writes.
+      - ./docker/sftp/fix-permissions.sh:/etc/sftp.d/fix-permissions.sh:ro
     command: "${SFTP_USER:-docscanner}:${SFTP_PASSWORD}:1001"
 
   migrate:
@@ -179,7 +182,7 @@ services:
       context: frontend/
       dockerfile: Dockerfile
     ports:
-      - "${FRONTEND_DEV_PORT:-5173}:8080"
+      - "${FRONTEND_DEV_PORT:-5173}:80"
     depends_on:
       - api
     environment:
