@@ -25,6 +25,62 @@ function formatDate(iso: string) {
   });
 }
 
+// ── Card preview image (auto-loads via authenticated proxy) ──────────────────
+
+function DocPreviewImage({ prediction }: { prediction: PredictionOut }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let createdUrl: string | null = null;
+
+    if (!prediction.overlay_url) {
+      setError(true);
+      return;
+    }
+
+    client.get(`/predictions/${prediction.id}/overlay`, { responseType: "blob" })
+      .then((res) => {
+        if (cancelled) return;
+        createdUrl = URL.createObjectURL(res.data);
+        setBlobUrl(createdUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
+
+    return () => {
+      cancelled = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [prediction.id, prediction.overlay_url]);
+
+  if (error) {
+    return (
+      <div style={{ textAlign: "center", color: "#7A8DAE" }}>
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" style={{ margin: "0 auto 0.5rem", opacity: 0.5 }}>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18M9 21V9" />
+        </svg>
+        <div style={{ fontSize: "13px" }}>Still processing</div>
+      </div>
+    );
+  }
+
+  if (!blobUrl) {
+    return <div className="skeleton" style={{ width: "100%", height: "100%", borderRadius: 0 }} />;
+  }
+
+  return (
+    <img
+      src={blobUrl}
+      alt={displayName(prediction)}
+      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+    />
+  );
+}
+
 // ── Color dot ─────────────────────────────────────────────────────────────────
 
 function ColorDot({ color, size = 10 }: { color: string | null; size?: number }) {
@@ -443,6 +499,17 @@ export default function DocumentsPage() {
     placeholderData: (prev) => prev,
   });
 
+  // Fetch all predictions (no pagination) when in Card view for category counts + filtering.
+  const { data: allPredictions } = useQuery<PredictionOut[]>({
+    queryKey: ["predictions", "all"],
+    queryFn: async () => {
+      const res = await client.get<PredictionOut[]>("/predictions", { params: { page: 1, limit: 500 } });
+      return res.data;
+    },
+    enabled: viewMode === "card",
+    staleTime: 15_000,
+  });
+
   const relabelMutation = useMutation({
     mutationFn: async ({ pid, label }: { pid: string; label: string }) => {
       const res = await client.patch<PredictionOut>(`/predictions/${pid}/label`, { new_label: label });
@@ -532,53 +599,91 @@ export default function DocumentsPage() {
     height: "32px",
   };
 
+  const viewToggle = (
+    <div style={{
+      display: "flex",
+      gap: "0.4rem",
+      background: "var(--bg-raised)",
+      padding: "0.35rem",
+      borderRadius: "8px",
+      border: "1px solid var(--border)",
+    }}>
+      {(["grid", "card"] as const).map((mode) => (
+        <button
+          key={mode}
+          onClick={() => {
+            setViewMode(mode);
+            setSelectedCategory(null);
+          }}
+          style={{
+            padding: "0.35rem 0.85rem",
+            background: viewMode === mode ? "var(--accent)" : "transparent",
+            color: viewMode === mode ? "#06080F" : "#E8F0FF",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "13px",
+            fontWeight: viewMode === mode ? 600 : 500,
+            fontFamily: "var(--font-display)",
+            transition: "all 0.15s",
+          }}
+        >
+          {mode === "grid" ? "Grid" : "Categories"}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <Layout
       title="Documents"
       subtitle="Classified documents — click labels, names, or comments to edit"
+      actions={viewToggle}
     >
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
       {viewingPred && <DocViewModal prediction={viewingPred} onClose={() => setViewingPred(null)} />}
 
-      {/* Filter bar */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: "0.75rem",
-        marginBottom: "1.25rem", flexWrap: "wrap",
-      }}>
-        <select
-          className="select"
-          value={labelFilter}
-          onChange={(e) => { setLabelFilter(e.target.value); setPage(1); }}
-          style={{ minWidth: "160px" }}
-        >
-          <option value="">All labels</option>
-          {PREDICTION_LABELS.map((l) => (
-            <option key={l} value={l}>{l.replace(/_/g, " ")}</option>
-          ))}
-        </select>
-
-        <select
-          className="select"
-          value={colorFilter}
-          onChange={(e) => { setColorFilter(e.target.value); setPage(1); }}
-          style={{ minWidth: "140px" }}
-        >
-          <option value="">All colors</option>
-          {COMMENT_COLORS.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
-
-        {(labelFilter || colorFilter) && (
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => { setLabelFilter(""); setColorFilter(""); setPage(1); }}
-            style={{ fontSize: "13px" }}
+      {/* Filter bar — Grid view only */}
+      {viewMode === "grid" && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "0.75rem",
+          marginBottom: "1.25rem", flexWrap: "wrap",
+        }}>
+          <select
+            className="select"
+            value={labelFilter}
+            onChange={(e) => { setLabelFilter(e.target.value); setPage(1); }}
+            style={{ minWidth: "160px" }}
           >
-            Clear filters
-          </button>
-        )}
-      </div>
+            <option value="">All labels</option>
+            {PREDICTION_LABELS.map((l) => (
+              <option key={l} value={l}>{l.replace(/_/g, " ")}</option>
+            ))}
+          </select>
+
+          <select
+            className="select"
+            value={colorFilter}
+            onChange={(e) => { setColorFilter(e.target.value); setPage(1); }}
+            style={{ minWidth: "140px" }}
+          >
+            <option value="">All colors</option>
+            {COMMENT_COLORS.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+
+          {(labelFilter || colorFilter) && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => { setLabelFilter(""); setColorFilter(""); setPage(1); }}
+              style={{ fontSize: "13px" }}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
 
       {isError && (
         <div style={{
@@ -592,42 +697,6 @@ export default function DocumentsPage() {
           Failed to load documents.
         </div>
       )}
-
-      {/* View toggle + Column header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-        <div style={{
-          display: "flex",
-          gap: "0.5rem",
-          background: "var(--bg-raised)",
-          padding: "0.4rem",
-          borderRadius: "8px",
-          border: "1px solid var(--border)",
-        }}>
-          {(["grid", "card"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => {
-                setViewMode(mode);
-                setSelectedCategory(null);
-              }}
-              style={{
-                padding: "0.35rem 0.75rem",
-                background: viewMode === mode ? "var(--accent)" : "transparent",
-                color: viewMode === mode ? "#06080F" : "#E8F0FF",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "13px",
-                fontWeight: viewMode === mode ? 600 : 500,
-                fontFamily: "var(--font-display)",
-                transition: "all 0.15s",
-              }}
-            >
-              {mode === "grid" ? "Grid" : "Categories"}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {viewMode === "grid" && (
         <>
@@ -999,88 +1068,95 @@ export default function DocumentsPage() {
       {viewMode === "card" && (
         <>
           {!selectedCategory ? (
-            // Category browser
+            // Category browser — sorted by count descending
             <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-              gap: "1rem",
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gap: "1.25rem",
               marginBottom: "2rem",
             }}>
-              {PREDICTION_LABELS.map((label) => {
-                const labelDisplay = label.replace(/_/g, " ");
-                const count = predictions?.filter((p) => p.label === label).length ?? 0;
+              {(() => {
+                const iconMap: Record<string, string> = {
+                  letter: "📄", form: "📋", email: "✉️", handwritten: "✍️",
+                  advertisement: "📢", scientific_report: "🔬", scientific_publication: "📚",
+                  specification: "📐", file_folder: "📁", news_article: "📰",
+                  budget: "💰", invoice: "🧾", presentation: "🎯",
+                  questionnaire: "❓", resume: "👤", memo: "📝",
+                };
 
-                return (
-                  <button
-                    key={label}
-                    onClick={() => {
-                      setSelectedCategory(label);
-                      setPage(1);
-                    }}
-                    style={{
-                      background: "var(--bg-raised)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "12px",
-                      padding: "1.5rem",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "0.75rem",
-                      minHeight: "160px",
-                      transition: "all 0.2s",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "var(--accent-glow)";
-                      (e.currentTarget as HTMLElement).style.borderColor = "var(--accent)";
-                      (e.currentTarget as HTMLElement).style.transform = "translateY(-4px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "var(--bg-raised)";
-                      (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
-                      (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                    }}
-                  >
-                    <div style={{
-                      fontSize: "48px",
-                      lineHeight: 1,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "64px",
-                      height: "64px",
-                      background: "var(--accent-glow)",
-                      borderRadius: "8px",
-                    }}>
-                      {label === "letter" && "📄"}
-                      {label === "form" && "📋"}
-                      {label === "email" && "✉️"}
-                      {label === "handwritten" && "✍️"}
-                      {label === "advertisement" && "📢"}
-                      {label === "scientific_report" && "🔬"}
-                      {label === "scientific_publication" && "📚"}
-                      {label === "specification" && "📐"}
-                      {label === "file_folder" && "📁"}
-                      {label === "news_article" && "📰"}
-                      {label === "budget" && "💰"}
-                      {label === "invoice" && "🧾"}
-                      {label === "presentation" && "🎯"}
-                      {label === "questionnaire" && "❓"}
-                      {label === "resume" && "👤"}
-                      {label === "memo" && "📝"}
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#E8F0FF", marginBottom: "0.3rem", fontFamily: "var(--font-display)" }}>
-                        {labelDisplay}
+                const categoriesWithCounts = PREDICTION_LABELS.map((label) => ({
+                  label,
+                  count: allPredictions?.filter((p) => p.label === label).length ?? 0,
+                })).sort((a, b) => b.count - a.count);
+
+                return categoriesWithCounts.map(({ label, count }) => {
+                  const labelDisplay = label.replace(/_/g, " ");
+                  const isEmpty = count === 0;
+                  return (
+                    <button
+                      key={label}
+                      disabled={isEmpty}
+                      onClick={() => {
+                        setSelectedCategory(label);
+                        setPage(1);
+                      }}
+                      style={{
+                        background: "var(--bg-raised)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "14px",
+                        padding: "2rem 1.25rem",
+                        cursor: isEmpty ? "not-allowed" : "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "1rem",
+                        minHeight: "200px",
+                        transition: "all 0.2s",
+                        opacity: isEmpty ? 0.4 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (isEmpty) return;
+                        (e.currentTarget as HTMLElement).style.background = "var(--accent-glow)";
+                        (e.currentTarget as HTMLElement).style.borderColor = "var(--accent)";
+                        (e.currentTarget as HTMLElement).style.transform = "translateY(-4px)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.background = "var(--bg-raised)";
+                        (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+                        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                      }}
+                    >
+                      <div style={{
+                        fontSize: "64px",
+                        lineHeight: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "92px",
+                        height: "92px",
+                        background: "var(--accent-glow)",
+                        borderRadius: "14px",
+                      }}>
+                        {iconMap[label] || "📄"}
                       </div>
-                      <div style={{ fontSize: "12px", color: "#7A8DAE" }}>
-                        {count} {count === 1 ? "document" : "documents"}
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: "15px", fontWeight: 600, color: "#E8F0FF", marginBottom: "0.4rem", fontFamily: "var(--font-display)", textTransform: "capitalize" }}>
+                          {labelDisplay}
+                        </div>
+                        <div style={{
+                          fontSize: "13px",
+                          color: count > 0 ? "var(--accent)" : "#7A8DAE",
+                          fontFamily: "var(--font-mono)",
+                          fontWeight: count > 0 ? 600 : 400,
+                        }}>
+                          {count} {count === 1 ? "document" : "documents"}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                });
+              })()}
             </div>
           ) : (
             // Document cards in selected category
@@ -1105,10 +1181,10 @@ export default function DocumentsPage() {
 
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                gap: "1.5rem",
+                gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+                gap: "1.75rem",
               }}>
-                {predictions?.filter((p) => p.label === selectedCategory).map((pred) => (
+                {allPredictions?.filter((p) => p.label === selectedCategory).map((pred) => (
                   <div
                     key={pred.id}
                     className="card animate-fade-up"
@@ -1117,11 +1193,10 @@ export default function DocumentsPage() {
                       flexDirection: "column",
                       borderLeft: `4px solid ${COMMENT_COLORS.find((c) => c.value === pred.comment_color)?.hex ?? "var(--border)"}`,
                       overflow: "hidden",
-                      cursor: "pointer",
                       transition: "all 0.2s",
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.transform = "translateY(-8px)";
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(-6px)";
                       (e.currentTarget as HTMLElement).style.boxShadow = "0 20px 50px rgba(0,0,0,0.5)";
                     }}
                     onMouseLeave={(e) => {
@@ -1129,11 +1204,11 @@ export default function DocumentsPage() {
                       (e.currentTarget as HTMLElement).style.boxShadow = "none";
                     }}
                   >
-                    {/* Preview area - document image */}
+                    {/* Preview area — auto-loaded image */}
                     <div
                       onClick={() => setViewingPred(pred)}
                       style={{
-                        height: "220px",
+                        height: "320px",
                         background: "var(--bg-base)",
                         display: "flex",
                         alignItems: "center",
@@ -1142,30 +1217,13 @@ export default function DocumentsPage() {
                         position: "relative",
                         overflow: "hidden",
                       }}
+                      title="Click to open full view"
                     >
-                      {pred.overlay_url ? (
-                        <img
-                          src={pred.overlay_url}
-                          alt={displayName(pred)}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                        />
-                      ) : (
-                        <div style={{ textAlign: "center", color: "#7A8DAE" }}>
-                          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: "0 auto 0.5rem", opacity: 0.5 }}>
-                            <rect x="3" y="3" width="18" height="18" rx="2" />
-                            <path d="M3 9h18M9 21V9" />
-                          </svg>
-                          <div style={{ fontSize: "12px" }}>Still processing</div>
-                        </div>
-                      )}
+                      <DocPreviewImage prediction={pred} />
                     </div>
 
                     {/* Info section */}
-                    <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                    <div style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.9rem" }}>
                       {/* Document name */}
                       <div>
                         <div style={{ fontSize: "11px", color: "#7A8DAE", fontFamily: "var(--font-mono)", marginBottom: "0.3rem", textTransform: "uppercase" }}>
