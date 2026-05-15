@@ -54,7 +54,7 @@ async def list_recent(svc: PredictionService = Depends(_svc)) -> list[Prediction
 )
 async def list_predictions(
     page: int = Query(default=1, ge=1),
-    limit: int = Query(default=10, ge=1, le=100),
+    limit: int = Query(default=10, ge=1, le=500),
     label: PredictionLabel | None = Query(default=None),
     color: str | None = Query(default=None),
     svc: PredictionService = Depends(_svc),
