@@ -87,7 +87,7 @@ export function Navbar() {
       }}
     >
       <Link
-        to="/batches"
+        to="/documents"
         style={{ display: "flex", alignItems: "center", gap: "0.6rem", textDecoration: "none", flexShrink: 0 }}
       >
         <div
@@ -120,7 +120,6 @@ export function Navbar() {
 
       <nav style={{ display: "flex", alignItems: "center", gap: "0.25rem", flex: 1 }}>
         <NavLink to="/documents">Documents</NavLink>
-        <NavLink to="/batches">Batches</NavLink>
         {role === "admin" && <NavLink to="/admin/users">Users</NavLink>}
         {(role === "admin" || role === "auditor") && <NavLink to="/audit">Audit</NavLink>}
         <NavLink to="/me">Profile</NavLink>
