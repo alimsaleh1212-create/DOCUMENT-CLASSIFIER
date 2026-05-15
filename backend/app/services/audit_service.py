@@ -11,7 +11,7 @@ class AuditService(IAuditService):
 
     async def record(
         self,
-        actor_id: str,
+        actor_id: str | None,
         action: str,
         target: str,
         metadata: dict | None = None,
