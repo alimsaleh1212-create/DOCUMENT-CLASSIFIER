@@ -199,8 +199,25 @@ services:
     environment:
       VITE_API_BASE_URL: "http://localhost:${API_PORT:-8000}"
 
+  pgadmin:
+    image: dpage/pgadmin4:8.13
+    pull_policy: never
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_EMAIL:-admin@docclass.com}"
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_PASSWORD:-admin}"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - pgadmindata:/var/lib/pgadmin
+
 volumes:
   pgdata:
   redisdata:
   miniodata:
   sftpdata:
+  pgadmindata:
